@@ -1,0 +1,71 @@
+@startuml C4_Components_HeatingService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(HeatingService, "Heating Service") {
+
+    ' API Layer
+    Component(HeatingAPI, "Heating API", "FastAPI Controller", "REST эндпоинты для управления отоплением")
+
+    ' Application Layer
+    Component(CommandHandler, "Command Handler", "Application Service", "Обработка команд: включить/выключить, установить температуру")
+    Component(QueryHandler, "Query Handler", "Application Service", "Обработка запросов: получить статус, историю")
+    Component(SchedulerService, "Scheduler Service", "Application Service", "Управление расписаниями отопления")
+
+    ' Domain Layer
+    Component(HeatingDomainService, "Heating Domain Service", "Domain Service", "Бизнес-логика управления отоплением")
+    Component(HeatingAggregate, "Heating System Aggregate", "Aggregate Root", "Агрегат: система отопления, датчики, реле")
+    Component(ValueObjects, "Value Objects", "Domain Model", "Температура, тип команды, статус отопления")
+
+    ' Infrastructure Layer
+    Component(HeatingRepo, "Heating Repository", "Repository", "CRUD операции с системами отопления")
+    Component(DeviceRepo, "Device Repository", "Repository", "Работа с датчиками и реле")
+    Component(EventPublisher, "Event Publisher", "Infrastructure", "Публикация событий в Message Broker")
+    Component(EventHandler, "Event Handler", "Infrastructure", "Обработка событий от устройств")
+    Component(StateManager, "State Manager", "Infrastructure", "Управление текущим состоянием")
+}
+ContainerDb(deviceServiceDb, "Device DB", "PostgreSQL", "Устройства, конфигурации")
+ContainerDb(servicesDb, "Services Database", "PostgreSQL", "Конфигурация систем отопления")
+ContainerDb(CacheStore, "Cache Store", "Redis", "Текущие состояния устройств")
+Container(MessageBroker, "Message Broker", "RabbitMQ", "Очередь событий и команд")
+Container(IotGateway, "IoT Gateway", "MQTT", "Шлюз к устройствам")
+
+System_Ext(ApiGateway, "API Gateway", "Точка входа")
+System_Ext(MonitoringService, "Monitoring Service", "Сервис мониторинга")
+System_Ext(AutomationService, "Automation Service", "Сервис автоматизации")
+
+' Связи API Layer
+Rel(ApiGateway, HeatingAPI, "HTTP/REST")
+Rel(HeatingAPI, CommandHandler, "Вызов команд")
+Rel(HeatingAPI, QueryHandler, "Запросы данных")
+
+' Application Layer связи
+Rel(CommandHandler, HeatingDomainService, "Выполнение бизнес-логики")
+Rel(QueryHandler, HeatingRepo, "Получение данных")
+Rel(SchedulerService, CommandHandler, "Выполнение по расписанию")
+
+' Domain Layer связи
+Rel(HeatingDomainService, HeatingAggregate, "Управление агрегатом")
+Rel(HeatingAggregate, ValueObjects, "Использует")
+Rel(HeatingDomainService, EventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(HeatingRepo, servicesDb, "SQL запросы")
+Rel(DeviceRepo, deviceServiceDb, "SQL запросы")
+Rel(HeatingDomainService, HeatingRepo, "Сохранение/получение")
+Rel(HeatingDomainService, DeviceRepo, "Работа с устройствами")
+
+Rel(EventPublisher, MessageBroker, "Публикация событий", "AMQP")
+Rel(MessageBroker, EventHandler, "Получение событий", "AMQP")
+Rel(EventHandler, StateManager, "Обновление состояния")
+Rel(EventHandler, HeatingDomainService, "Обработка событий IoT")
+
+Rel(StateManager, CacheStore, "Кэширование", "Redis Protocol")
+Rel(CommandHandler, IotGateway, "Отправка команд", "MQTT")
+
+' Внешние связи
+Rel(AutomationService, HeatingAPI, "Триггеры автоматизации", "REST")
+Rel(EventPublisher, MonitoringService, "События для мониторинга", "AMQP")
+
+@enduml

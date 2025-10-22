@@ -1,0 +1,90 @@
+@startuml C4_Components_TelemetryService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(telemetryService, "Telemetry Service") {
+
+    ' === API Layer ===
+    Component(telemetryAPI, "Telemetry API", "FastAPI Controller", "REST эндпоинты: запись, получение истории телеметрии")
+    Component(analyticsAPI, "Analytics API", "FastAPI Controller", "REST эндпоинты: агрегация, статистика, отчеты")
+
+    ' === Application Layer ===
+    Component(writeHandler, "Write Telemetry Handler", "Application Service", "Запись телеметрии в хранилище")
+    Component(queryHandler, "Query Handler", "Application Service", "Получение исторических данных")
+    Component(aggregationService, "Aggregation Service", "Application Service", "Агрегация данных по периодам (час, день, месяц)")
+    Component(analyticsService, "Analytics Service", "Application Service", "Расчет статистики и метрик")
+    Component(archiveService, "Archive Service", "Application Service", "Архивирование старых данных")
+    Component(eventProcessor, "Event Processor", "Application Service", "Обработка событий телеметрии от устройств")
+
+    ' === Domain Layer ===
+    Component(telemetryDomainService, "Telemetry Domain Service", "Domain Service", "Бизнес-логика хранения телеметрии")
+    Component(telemetryAggregate, "Telemetry History Aggregate", "Aggregate Root", "Агрегат: история телеметрии устройства")
+    Component(valueObjects, "Value Objects", "Domain Model", "Значение телеметрии, timestamp, единица измерения")
+
+    ' === Infrastructure Layer ===
+    Component(telemetryRepo, "Telemetry Repository", "Repository", "Запись и чтение временных рядов")
+    Component(aggregatedDataRepo, "Aggregated Data Repository", "Repository", "Хранение агрегированных данных")
+    Component(timeSeriesOptimizer, "Time Series Optimizer", "Infrastructure", "Оптимизация запросов к TimescaleDB")
+    Component(batchWriter, "Batch Writer", "Infrastructure", "Пакетная запись для производительности")
+    Component(compressionManager, "Compression Manager", "Infrastructure", "Сжатие старых данных")
+    Component(eventSubscriber, "Event Subscriber", "Infrastructure", "Подписка на события телеметрии")
+    Component(archiveWriter, "Archive Writer", "Infrastructure", "Выгрузка в Object Storage")
+}
+
+ContainerDb(telemetryDb, "Telemetry Database", "TimescaleDB", "Временные ряды, история телеметрии")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Кэш агрегированных данных")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий телеметрии")
+System_Ext(objectStorage, "Object Storage", "S3", "Архив старых данных")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(iotGateway, "IoT Gateway", "Источник телеметрии")
+System_Ext(monitoringService, "Monitoring Service", "Потребитель данных")
+System_Ext(functionalServices, "Functional Services", "Heating, Light и др.")
+
+' === Связи API Layer ===
+Rel(apiGateway, telemetryAPI, "HTTP/REST")
+Rel(apiGateway, analyticsAPI, "HTTP/REST")
+Rel(telemetryAPI, writeHandler, "Запись телеметрии")
+Rel(telemetryAPI, queryHandler, "Получение истории")
+Rel(analyticsAPI, aggregationService, "Получение агрегаций")
+Rel(analyticsAPI, analyticsService, "Расчет статистики")
+
+' === Application Layer связи ===
+Rel(writeHandler, telemetryDomainService, "Сохранение данных")
+Rel(queryHandler, telemetryRepo, "Получение данных")
+Rel(aggregationService, telemetryDomainService, "Агрегация данных")
+Rel(analyticsService, aggregatedDataRepo, "Получение агрегатов")
+Rel(archiveService, telemetryRepo, "Выгрузка старых данных")
+Rel(eventProcessor, writeHandler, "Обработка событий")
+
+' === Domain Layer связи ===
+Rel(telemetryDomainService, telemetryAggregate, "Управление агрегатом")
+Rel(telemetryAggregate, valueObjects, "Использует")
+Rel(telemetryDomainService, batchWriter, "Пакетная запись")
+Rel(telemetryDomainService, timeSeriesOptimizer, "Оптимизация запросов")
+
+' === Infrastructure связи ===
+Rel(telemetryRepo, telemetryDb, "SQL запросы")
+Rel(aggregatedDataRepo, telemetryDb, "SQL запросы")
+Rel(batchWriter, telemetryDb, "Batch insert")
+Rel(telemetryDomainService, telemetryRepo, "Сохранение/получение")
+Rel(aggregationService, aggregatedDataRepo, "Сохранение агрегатов")
+
+Rel(timeSeriesOptimizer, telemetryDb, "Оптимизация индексов")
+Rel(compressionManager, telemetryDb, "Сжатие данных")
+Rel(archiveWriter, objectStorage, "Выгрузка архива", "S3 API")
+Rel(archiveService, archiveWriter, "Архивирование")
+
+Rel(analyticsService, cacheStore, "Кэширование результатов", "Redis Protocol")
+Rel(aggregationService, cacheStore, "Кэш агрегатов", "Redis Protocol")
+
+Rel(messageBroker, eventSubscriber, "Получение событий", "AMQP")
+Rel(eventSubscriber, eventProcessor, "Передача событий")
+
+' === Внешние связи ===
+Rel(iotGateway, messageBroker, "События телеметрии", "AMQP")
+Rel(functionalServices, messageBroker, "События устройств", "AMQP")
+Rel(monitoringService, telemetryAPI, "Запрос истории", "REST")
+
+@enduml

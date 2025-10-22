@@ -1,0 +1,88 @@
+@startuml C4_Components_NotificationService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(notificationService, "Notification Service") {
+
+    ' API Layer
+    Component(notificationAPI, "Notification API", "FastAPI Controller", "REST эндпоинты: создание, получение уведомлений")
+    Component(subscriptionAPI, "Subscription API", "FastAPI Controller", "REST эндпоинты: управление подписками")
+    Component(websocketHandler, "WebSocket Handler", "WebSocket", "Real-time доставка уведомлений")
+
+    ' Application Layer
+    Component(sendNotificationHandler, "Send Notification Handler", "Application Service", "Отправка уведомлений пользователям")
+    Component(notificationQueryHandler, "Notification Query Handler", "Application Service", "Получение истории уведомлений")
+    Component(subscriptionHandler, "Subscription Handler", "Application Service", "Управление подписками пользователей")
+    Component(templateService, "Template Service", "Application Service", "Управление шаблонами сообщений")
+    Component(eventProcessor, "Event Processor", "Application Service", "Обработка событий от других сервисов")
+
+    ' Domain Layer
+    Component(notificationDomainService, "Notification Domain Service", "Domain Service", "Бизнес-логика отправки уведомлений")
+    Component(notificationAggregate, "Notification Aggregate", "Aggregate Root", "Агрегат: уведомление, статус доставки")
+    Component(valueObjects, "Value Objects", "Domain Model", "Сообщение, тип сообщения, приоритет, канал доставки")
+
+    ' Infrastructure Layer
+    Component(notificationRepo, "Notification Repository", "Repository", "CRUD операции с уведомлениями")
+    Component(subscriptionRepo, "Subscription Repository", "Repository", "Управление подписками")
+    Component(templateRepo, "Template Repository", "Repository", "Хранение шаблонов")
+    Component(emailSender, "Email Sender", "Infrastructure", "Отправка Email уведомлений")
+    Component(pushSender, "Push Sender", "Infrastructure", "Отправка Push уведомлений")
+    Component(smsSender, "SMS Sender", "Infrastructure", "Отправка SMS уведомлений")
+    Component(websocketManager, "WebSocket Manager", "Infrastructure", "Управление WebSocket соединениями")
+    Component(eventSubscriber, "Event Subscriber", "Infrastructure", "Подписка на события из Message Broker")
+}
+
+ContainerDb(notificationDb, "Notification Database", "PostgreSQL", "Уведомления, подписки, шаблоны")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Активные WebSocket соединения, временные данные")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(emailProvider, "Email Provider", "SMTP сервер")
+System_Ext(pushProvider, "Push Provider", "Firebase")
+System_Ext(smsProvider, "SMS Provider", "SMS шлюз")
+System_Ext(otherServices, "Other Services", "Heating, Monitoring и др.")
+
+' Связи API Layer
+Rel(apiGateway, notificationAPI, "HTTP/REST")
+Rel(apiGateway, subscriptionAPI, "HTTP/REST")
+Rel(apiGateway, websocketHandler, "WebSocket")
+Rel(notificationAPI, sendNotificationHandler, "Отправка уведомления")
+Rel(notificationAPI, notificationQueryHandler, "Получение истории")
+Rel(subscriptionAPI, subscriptionHandler, "Управление подписками")
+
+' Application Layer связи
+Rel(sendNotificationHandler, notificationDomainService, "Создание уведомления")
+Rel(eventProcessor, sendNotificationHandler, "Обработка событий")
+Rel(notificationQueryHandler, notificationRepo, "Получение данных")
+Rel(subscriptionHandler, subscriptionRepo, "Управление подписками")
+Rel(sendNotificationHandler, templateService, "Использование шаблонов")
+
+' Domain Layer связи
+Rel(notificationDomainService, notificationAggregate, "Управление агрегатом")
+Rel(notificationAggregate, valueObjects, "Использует")
+Rel(notificationDomainService, emailSender, "Отправка Email")
+Rel(notificationDomainService, pushSender, "Отправка Push")
+Rel(notificationDomainService, smsSender, "Отправка SMS")
+Rel(notificationDomainService, websocketManager, "Отправка через WebSocket")
+
+' Infrastructure связи
+Rel(notificationRepo, notificationDb, "SQL запросы")
+Rel(subscriptionRepo, notificationDb, "SQL запросы")
+Rel(templateRepo, notificationDb, "SQL запросы")
+Rel(notificationDomainService, notificationRepo, "Сохранение уведомлений")
+Rel(templateService, templateRepo, "Получение шаблонов")
+
+Rel(websocketManager, cacheStore, "Хранение соединений", "Redis Protocol")
+Rel(websocketHandler, websocketManager, "Регистрация соединений")
+
+Rel(messageBroker, eventSubscriber, "Получение событий", "AMQP")
+Rel(eventSubscriber, eventProcessor, "Передача событий")
+
+' Внешние связи
+Rel(emailSender, emailProvider, "SMTP")
+Rel(pushSender, pushProvider, "HTTP/API")
+Rel(smsSender, smsProvider, "HTTP/API")
+Rel(otherServices, messageBroker, "Публикация событий", "AMQP")
+
+@enduml

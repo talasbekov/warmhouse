@@ -1,0 +1,346 @@
+@startuml
+title ER-диаграмма Smart Home Ecosystem
+
+' Auth Service
+package "Auth Service (PostgreSQL)" as Auth {
+  entity "User" {
+    *id: UUID
+    full_name: string
+    email: string
+    password_hash: string
+    created_at: datetime
+  }
+  entity "Role" {
+    *id: UUID
+    name: string
+    description: string
+  }
+  entity "Permission" {
+    *id: UUID
+    resource: string
+    action: enum
+  }
+  entity "UserRole" {
+    *user_id: UUID
+    *role_id: UUID
+  }
+  entity "RolePermission" {
+    *role_id: UUID
+    *permission_id: UUID
+  }
+}
+
+' Structure Service
+package "Structure Service (PostgreSQL)" as Structure {
+  entity "Location" {
+    *id: UUID
+    parent_id: UUID <<FK self>>
+    name: string
+    type: enum
+    level: int
+    metadata: jsonb
+    created_at: datetime
+    --
+    * type: COUNTRY, CITY, DISTRICT
+    * level: 0=country, 1=city, 2=district
+  }
+  entity "Home" {
+    *id: UUID
+    location_id: UUID
+    user_id: UUID
+    address: string
+    coordinates: point
+  }
+  entity "Room" {
+    *id: UUID
+    home_id: UUID
+    name: string
+    floor: int
+  }
+  entity "DeviceLocation" {
+    *device_id: UUID
+    *room_id: UUID
+    position: string
+  }
+}
+
+' Device Service
+package "Device Service (PostgreSQL)" as Device {
+  entity "Device" {
+    *id: UUID
+    serial_number: string
+    model: string
+    type: enum
+    status: enum
+    owner_id: UUID
+    created_at: datetime
+  }
+  entity "DeviceConfiguration" {
+    *id: UUID
+    device_id: UUID
+    config_key: string
+    config_value: json
+  }
+  entity "Firmware" {
+    *id: UUID
+    device_type: enum
+    version: string
+    release_date: datetime
+    download_url: string
+  }
+}
+
+' Heating Service
+package "Heating Service (PostgreSQL)" as Heating {
+  entity "HeatingSystem" {
+    *id: UUID
+    name: string
+    target_temperature: float
+    current_temperature: float
+    status: enum
+    created_at: datetime
+  }
+  entity "Sensor" {
+    *id: UUID
+    heating_system_id: UUID
+    device_id: UUID
+    type: enum
+    last_reading: float
+    last_update: datetime
+  }
+  entity "Relay" {
+    *id: UUID
+    heating_system_id: UUID
+    device_id: UUID
+    state: enum
+    last_state_change: datetime
+  }
+}
+
+' Light Service
+package "Light Service (PostgreSQL)" as Light {
+  entity "LightSystem" {
+    *id: UUID
+    name: string
+    brightness: int
+    color: string
+    status: enum
+  }
+  entity "LightSensor" {
+    *id: UUID
+    light_system_id: UUID
+    device_id: UUID
+    type: enum
+  }
+  entity "LightRelay" {
+    *id: UUID
+    light_system_id: UUID
+    device_id: UUID
+    state: enum
+  }
+}
+
+' Gates Service
+package "Gates Service (PostgreSQL)" as Gates {
+  entity "GatesSystem" {
+    *id: UUID
+    name: string
+    position: enum
+    speed: int
+    status: enum
+  }
+  entity "GatesSensor" {
+    *id: UUID
+    gates_system_id: UUID
+    device_id: UUID
+    type: enum
+  }
+  entity "GatesRelay" {
+    *id: UUID
+    gates_system_id: UUID
+    device_id: UUID
+    state: enum
+  }
+}
+
+' Camera Service
+package "Camera Service (PostgreSQL)" as Camera {
+  entity "CameraSystem" {
+    *id: UUID
+    name: string
+    device_id: UUID
+    resolution: string
+    angle: int
+    status: enum
+  }
+  entity "Recording" {
+    *id: UUID
+    camera_id: UUID
+    start_time: datetime
+    end_time: datetime
+    s3_url: string
+    duration: int
+  }
+}
+
+' Automation Service
+package "Automation Service (PostgreSQL)" as Automation {
+  entity "Scenario" {
+    *id: UUID
+    name: string
+    user_id: UUID
+    is_active: bool
+    created_at: datetime
+  }
+  entity "Trigger" {
+    *id: UUID
+    scenario_id: UUID
+    event_type: enum
+    device_id: UUID
+  }
+  entity "Condition" {
+    *id: UUID
+    scenario_id: UUID
+    condition_type: enum
+    operator: enum
+    value: json
+  }
+  entity "Action" {
+    *id: UUID
+    scenario_id: UUID
+    target_service: string
+    command_type: enum
+    parameters: json
+    order: int
+  }
+}
+
+' Notification Service
+package "Notification Service (PostgreSQL)" as Notification {
+  entity "Notification" {
+    *id: UUID
+    user_id: UUID
+    message: string
+    type: enum
+    priority: enum
+    created_at: datetime
+    read_at: datetime
+  }
+  entity "Subscription" {
+    *id: UUID
+    user_id: UUID
+    channel: enum
+    event_type: enum
+    is_active: bool
+  }
+  entity "Template" {
+    *id: UUID
+    name: string
+    template_text: string
+    channel: enum
+  }
+}
+
+' Telemetry Service
+package "Telemetry Service (TimescaleDB)" as Telemetry {
+  entity "TelemetryHistory" {
+    *id: UUID
+    device_id: UUID
+    timestamp: datetime
+    metric_name: string
+    value: float
+    unit: string
+  }
+  entity "AggregatedData" {
+    *id: UUID
+    device_id: UUID
+    period: enum
+    metric_name: string
+    avg_value: float
+    min_value: float
+    max_value: float
+    timestamp: datetime
+  }
+}
+
+' Monitoring Service
+package "Monitoring Service (PostgreSQL)" as Monitoring {
+  entity "DeviceState" {
+    *id: UUID
+    device_id: UUID
+    last_status: string
+    last_update: datetime
+    is_online: bool
+  }
+  entity "Alert" {
+    *id: UUID
+    device_id: UUID
+    alert_type: enum
+    severity: enum
+    message: string
+    created_at: datetime
+    resolved_at: datetime
+  }
+}
+
+' Связи Auth Service
+User ||--o{ UserRole
+Role ||--o{ UserRole
+Role ||--o{ RolePermission
+Permission ||--o{ RolePermission
+
+' Связи Structure Service
+Location ||--o{ Location: "parent_id"
+Location ||--o{ Home
+Home ||--o{ Room
+User ||--o{ Home: "владеет"
+Room ||--o{ DeviceLocation
+
+' Связи Device Service
+Device ||--o{ DeviceConfiguration
+Device }o--|| Firmware: "uses"
+Device ||--|| DeviceLocation
+User ||--o{ Device: "владеет"
+
+' Связи Heating Service
+HeatingSystem ||--o{ Sensor
+HeatingSystem ||--o{ Relay
+Device ||--o{ Sensor: "physical"
+Device ||--o{ Relay: "physical"
+
+' Связи Light Service
+LightSystem ||--o{ LightSensor
+LightSystem ||--o{ LightRelay
+Device ||--o{ LightSensor: "physical"
+Device ||--o{ LightRelay: "physical"
+
+' Связи Gates Service
+GatesSystem ||--o{ GatesSensor
+GatesSystem ||--o{ GatesRelay
+Device ||--o{ GatesSensor: "physical"
+Device ||--o{ GatesRelay: "physical"
+
+' Связи Camera Service
+CameraSystem }o--|| Device
+CameraSystem ||--o{ Recording
+
+' Связи Automation Service
+Scenario ||--o{ Trigger
+Scenario ||--o{ Condition
+Scenario ||--o{ Action
+User ||--o{ Scenario: "creates"
+
+' Связи Notification Service
+User ||--o{ Notification
+User ||--o{ Subscription
+Notification }o--|| Template: "uses"
+
+' Связи Telemetry Service
+Device ||--o{ TelemetryHistory: "sends"
+Device ||--o{ AggregatedData
+
+' Связи Monitoring Service
+Device ||--|| DeviceState
+Device ||--o{ Alert
+
+@enduml

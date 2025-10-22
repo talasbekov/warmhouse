@@ -1,0 +1,19 @@
+@startuml C4_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Управляет")
+
+System(smartHome, "Экосистема \nумного дома", "Система управления \nумным домом\n(Отопление, Свет, Ворота, Наблюдение, Мониторинг)")
+
+System_Ext(S3, "Облачное \nхранилище S3", "Хранит все записи")
+System_Ext(devices, "IoT устройства", "Разные устройства")
+
+Rel(user, smartHome, "Использует: веб/мобильное приложение")
+Rel(smartHome, S3, "Система \nзагружает видео")
+Rel(S3, smartHome, "Хранилище \nотдает видео")
+Rel(smartHome, devices, "Система \nотправляет команды")
+Rel(devices, smartHome, "Устройства отправляют данные и ответы системе")
+
+@enduml

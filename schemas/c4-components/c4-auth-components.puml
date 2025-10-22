@@ -1,0 +1,84 @@
+@startuml C4_Components_AuthService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(authService, "Auth Service") {
+
+    ' API Layer
+    Component(authAPI, "Auth API", "FastAPI Controller", "REST эндпоинты: регистрация, логин, выход, обновление токена")
+    Component(userAPI, "User Management API", "FastAPI Controller", "REST эндпоинты: управление пользователями, ролями, правами")
+
+    ' Application Layer
+    Component(loginHandler, "Login Command Handler", "Application Service", "Обработка команды: аутентификация пользователя")
+    Component(registerHandler, "Register Command Handler", "Application Service", "Обработка команды: регистрация нового пользователя")
+    Component(tokenHandler, "Token Command Handler", "Application Service", "Обновление и валидация токенов")
+    Component(userQueryHandler, "User Query Handler", "Application Service", "Получение информации о пользователях")
+    Component(permissionService, "Permission Service", "Application Service", "Проверка прав доступа")
+
+    ' Domain Layer
+    Component(authDomainService, "Auth Domain Service", "Domain Service", "Бизнес-логика авторизации")
+    Component(userAggregate, "User Aggregate", "Aggregate Root", "Агрегат: пользователь, роли, права")
+    Component(roleEntity, "Role Entity", "Entity", "Сущность: роль пользователя")
+    Component(permissionEntity, "Permission Entity", "Entity", "Сущность: права доступа")
+    Component(valueObjects, "Value Objects", "Domain Model", "Логин, хеш пароля, токен, refresh token")
+
+    ' Infrastructure Layer
+    Component(userRepo, "User Repository", "Repository", "CRUD операции с пользователями")
+    Component(roleRepo, "Role Repository", "Repository", "CRUD операции с ролями")
+    Component(permissionRepo, "Permission Repository", "Repository", "CRUD операции с правами")
+    Component(tokenManager, "JWT Token Manager", "Infrastructure", "Генерация и валидация JWT токенов")
+    Component(passwordHasher, "Password Hasher", "Infrastructure", "Хеширование и проверка паролей")
+    Component(sessionManager, "Session Manager", "Infrastructure", "Управление сессиями")
+    Component(eventPublisher, "Event Publisher", "Infrastructure", "Публикация событий: UserRegistered, UserLoggedIn")
+}
+
+ContainerDb(authDb, "Auth Database", "PostgreSQL", "Пользователи, роли, права, сессии")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Сессии, токены, кэш прав")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(externalServices, "External Services", "Другие микросервисы")
+
+' Связи API Layer
+Rel(apiGateway, authAPI, "HTTP/REST")
+Rel(apiGateway, userAPI, "HTTP/REST")
+Rel(authAPI, loginHandler, "Команда логина")
+Rel(authAPI, registerHandler, "Команда регистрации")
+Rel(authAPI, tokenHandler, "Обновление токена")
+Rel(userAPI, userQueryHandler, "Запрос данных")
+Rel(userAPI, permissionService, "Проверка прав")
+
+' Application Layer связи
+Rel(loginHandler, authDomainService, "Аутентификация")
+Rel(registerHandler, authDomainService, "Создание пользователя")
+Rel(tokenHandler, tokenManager, "Работа с токенами")
+Rel(permissionService, authDomainService, "Проверка доступа")
+
+' Domain Layer связи
+Rel(authDomainService, userAggregate, "Управление агрегатом")
+Rel(userAggregate, roleEntity, "Имеет роли")
+Rel(roleEntity, permissionEntity, "Имеет права")
+Rel(userAggregate, valueObjects, "Использует")
+Rel(authDomainService, passwordHasher, "Проверка пароля")
+Rel(authDomainService, tokenManager, "Генерация токенов")
+Rel(authDomainService, eventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(userRepo, authDb, "SQL запросы")
+Rel(roleRepo, authDb, "SQL запросы")
+Rel(permissionRepo, authDb, "SQL запросы")
+Rel(authDomainService, userRepo, "Сохранение/получение")
+Rel(authDomainService, roleRepo, "Работа с ролями")
+Rel(permissionService, permissionRepo, "Получение прав")
+
+Rel(sessionManager, cacheStore, "Хранение сессий", "Redis Protocol")
+Rel(tokenManager, cacheStore, "Кэш токенов", "Redis Protocol")
+Rel(permissionService, cacheStore, "Кэш прав", "Redis Protocol")
+
+Rel(eventPublisher, messageBroker, "События: UserRegistered, UserLoggedIn", "AMQP")
+
+' Внешние связи
+Rel(externalServices, authAPI, "Проверка токенов", "REST")
+
+@enduml

@@ -1,0 +1,96 @@
+@startuml C4_Components_MonitoringService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(monitoringService, "Monitoring Service") {
+
+    ' === API Layer ===
+    Component(stateAPI, "State API", "FastAPI Controller", "REST эндпоинты: получение текущих состояний устройств")
+    Component(healthAPI, "Health Check API", "FastAPI Controller", "REST эндпоинты: проверка доступности устройств")
+    Component(alertAPI, "Alert API", "FastAPI Controller", "REST эндпоинты: управление алертами")
+    Component(websocketHandler, "WebSocket Handler", "WebSocket", "Real-time обновления состояний")
+
+    ' === Application Layer ===
+    Component(stateQueryHandler, "State Query Handler", "Application Service", "Получение текущих состояний")
+    Component(updateStateHandler, "Update State Handler", "Application Service", "Обновление состояния устройства")
+    Component(healthCheckService, "Health Check Service", "Application Service", "Проверка доступности и работоспособности")
+    Component(alertService, "Alert Service", "Application Service", "Генерация и отправка алертов")
+    Component(eventProcessor, "Event Processor", "Application Service", "Обработка событий изменения состояний")
+    Component(dashboardService, "Dashboard Service", "Application Service", "Агрегация данных для дашбордов")
+
+    ' === Domain Layer ===
+    Component(monitoringDomainService, "Monitoring Domain Service", "Domain Service", "Бизнес-логика мониторинга состояний")
+    Component(stateAggregate, "Device State Aggregate", "Aggregate Root", "Агрегат: текущее состояние устройства")
+    Component(valueObjects, "Value Objects", "Domain Model", "Последний статус, timestamp, метрики здоровья")
+
+    ' === Infrastructure Layer ===
+    Component(stateRepo, "State Repository", "Repository", "CRUD операций с текущими состояниями")
+    Component(alertRepo, "Alert Repository", "Repository", "Хранение алертов и их истории")
+    Component(stateCache, "State Cache", "Infrastructure", "Кэширование текущих состояний в Redis")
+    Component(healthChecker, "Health Checker", "Infrastructure", "Периодическая проверка устройств")
+    Component(eventSubscriber, "Event Subscriber", "Infrastructure", "Подписка на события от устройств")
+    Component(eventPublisher, "Event Publisher", "Infrastructure", "Публикация алертов и изменений состояний")
+    Component(websocketManager, "WebSocket Manager", "Infrastructure", "Управление WebSocket соединениями")
+}
+
+ContainerDb(monitoringDb, "Monitoring Database", "PostgreSQL", "Текущие состояния, алерты, метрики")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Быстрый доступ к текущим состояниям")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(iotGateway, "IoT Gateway", "Источник событий устройств")
+System_Ext(notificationService, "Notification Service", "Отправка уведомлений")
+System_Ext(telemetryService, "Telemetry Service", "Источник метрик")
+System_Ext(functionalServices, "Functional Services", "Heating, Light и др.")
+
+' === Связи API Layer ===
+Rel(apiGateway, stateAPI, "HTTP/REST")
+Rel(apiGateway, healthAPI, "HTTP/REST")
+Rel(apiGateway, alertAPI, "HTTP/REST")
+Rel(apiGateway, websocketHandler, "WebSocket")
+Rel(stateAPI, stateQueryHandler, "Получение состояний")
+Rel(stateAPI, dashboardService, "Данные дашборда")
+Rel(healthAPI, healthCheckService, "Проверка здоровья")
+Rel(alertAPI, alertService, "Управление алертами")
+
+' === Application Layer связи ===
+Rel(stateQueryHandler, stateCache, "Получение из кэша")
+Rel(updateStateHandler, monitoringDomainService, "Обновление состояния")
+Rel(healthCheckService, monitoringDomainService, "Проверка устройств")
+Rel(alertService, monitoringDomainService, "Обработка алертов")
+Rel(eventProcessor, updateStateHandler, "Обработка событий")
+Rel(dashboardService, stateQueryHandler, "Агрегация данных")
+
+' === Domain Layer связи ===
+Rel(monitoringDomainService, stateAggregate, "Управление агрегатом")
+Rel(stateAggregate, valueObjects, "Использует")
+Rel(monitoringDomainService, eventPublisher, "Публикация изменений")
+Rel(monitoringDomainService, alertService, "Триггер алертов")
+
+' === Infrastructure связи ===
+Rel(stateRepo, monitoringDb, "SQL запросы")
+Rel(alertRepo, monitoringDb, "SQL запросы")
+Rel(monitoringDomainService, stateRepo, "Сохранение состояний")
+Rel(alertService, alertRepo, "Сохранение алертов")
+
+Rel(stateCache, cacheStore, "Кэш состояний", "Redis Protocol")
+Rel(updateStateHandler, stateCache, "Обновление кэша")
+Rel(healthChecker, stateCache, "Проверка состояний")
+
+Rel(healthChecker, healthCheckService, "Периодическая проверка")
+Rel(websocketManager, cacheStore, "Управление соединениями", "Redis Protocol")
+Rel(websocketHandler, websocketManager, "Регистрация клиентов")
+Rel(updateStateHandler, websocketManager, "Push обновлений")
+
+Rel(messageBroker, eventSubscriber, "Получение событий", "AMQP")
+Rel(eventSubscriber, eventProcessor, "Передача событий")
+Rel(eventPublisher, messageBroker, "Публикация алертов", "AMQP")
+
+' === Внешние связи ===
+Rel(iotGateway, messageBroker, "События устройств", "AMQP")
+Rel(functionalServices, messageBroker, "Изменения состояний", "AMQP")
+Rel(telemetryService, messageBroker, "Метрики устройств", "AMQP")
+Rel(eventPublisher, notificationService, "Алерты", "AMQP")
+
+@enduml

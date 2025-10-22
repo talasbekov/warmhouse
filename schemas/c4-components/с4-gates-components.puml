@@ -1,0 +1,71 @@
+@startuml C4_Components_GatesService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(GatesService, "Gates Service") {
+
+    ' API Layer
+    Component(GatesAPI, "Gates API", "FastAPI Controller", "REST эндпоинты для управления воротами")
+
+    ' Application Layer
+    Component(CommandHandler, "Command Handler", "Application Service", "Обработка команд: включить/выключить, установить положение")
+    Component(QueryHandler, "Query Handler", "Application Service", "Обработка запросов: получить статус, историю")
+    Component(SchedulerService, "Scheduler Service", "Application Service", "Управление \nрасписаниями ворот")
+
+    ' Domain Layer
+    Component(GatesDomainService, "Gates Domain Service", "Domain Service", "Бизнес-логика управления воротами")
+    Component(GatesAggregate, "Gates System Aggregate", "Aggregate Root", "Агрегат: система ворот, датчики, реле")
+    Component(ValueObjects, "Value Objects", "Domain Model", "Положение, тип команды, статус ворот")
+
+    ' Infrastructure Layer
+    Component(GatesRepo, "Gates Repository", "Repository", "CRUD операции \nс системами ворот")
+    Component(DeviceRepo, "Device Repository", "Repository", "Работа с датчиками и реле")
+    Component(EventPublisher, "Event Publisher", "Infrastructure", "Публикация событий в Message Broker")
+    Component(EventHandler, "Event Handler", "Infrastructure", "Обработка событий от устройств")
+    Component(StateManager, "State Manager", "Infrastructure", "Управление текущим состоянием")
+}
+ContainerDb(deviceServiceDb, "Device DB", "PostgreSQL", "Устройства, конфигурации")
+ContainerDb(servicesDb, "Services Database", "PostgreSQL", "Конфигурация систем ворот")
+ContainerDb(CacheStore, "Cache Store", "Redis", "Текущие состояния устройств")
+Container(MessageBroker, "Message Broker", "RabbitMQ", "Очередь событий и команд")
+Container(IotGateway, "IoT Gateway", "MQTT", "Шлюз к устройствам")
+
+System_Ext(ApiGateway, "API Gateway", "Точка входа")
+System_Ext(MonitoringService, "Monitoring Service", "Сервис мониторинга")
+System_Ext(AutomationService, "Automation Service", "Сервис автоматизации")
+
+' Связи API Layer
+Rel(ApiGateway, GatesAPI, "HTTP/REST")
+Rel(GatesAPI, CommandHandler, "Вызов команд")
+Rel(GatesAPI, QueryHandler, "Запросы данных")
+
+' Application Layer связи
+Rel(CommandHandler, GatesDomainService, "Выполнение бизнес-логики")
+Rel(QueryHandler, GatesRepo, "Получение данных")
+Rel(SchedulerService, CommandHandler, "Выполнение по расписанию")
+
+' Domain Layer связи
+Rel(GatesDomainService, GatesAggregate, "Управление агрегатом")
+Rel(GatesAggregate, ValueObjects, "Использует")
+Rel(GatesDomainService, EventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(GatesRepo, servicesDb, "SQL запросы")
+Rel(DeviceRepo, deviceServiceDb, "SQL запросы")
+Rel(GatesDomainService, GatesRepo, "Сохранение/получение")
+Rel(GatesDomainService, DeviceRepo, "Работа с устройствами")
+
+Rel(EventPublisher, MessageBroker, "Публикация событий", "AMQP")
+Rel(MessageBroker, EventHandler, "Получение событий", "AMQP")
+Rel(EventHandler, StateManager, "Обновление состояния")
+Rel(EventHandler, GatesDomainService, "Обработка событий IoT")
+
+Rel(StateManager, CacheStore, "Кэширование", "Redis Protocol")
+Rel(CommandHandler, IotGateway, "Отправка команд", "MQTT")
+
+' Внешние связи
+Rel(AutomationService, GatesAPI, "Триггеры автоматизации", "REST")
+Rel(EventPublisher, MonitoringService, "События для мониторинга", "AMQP")
+
+@enduml

@@ -1,0 +1,71 @@
+@startuml C4_Components_CameraService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(CameraService, "Camera Service") {
+
+    ' API Layer
+    Component(CameraAPI, "Camera API", "FastAPI Controller", "REST эндпоинты для управления камерами")
+
+    ' Application Layer
+    Component(CommandHandler, "Command Handler", "Application Service", "Обработка команд: включить/выключить, установить угол")
+    Component(QueryHandler, "Query Handler", "Application Service", "Обработка запросов: получить статус, историю")
+    Component(SchedulerService, "Scheduler Service", "Application Service", "Управление \nрасписаниями камер")
+
+    ' Domain Layer
+    Component(CameraDomainService, "Camera Domain Service", "Domain Service", "Бизнес-логика управления камерами")
+    Component(CameraAggregate, "Camera System Aggregate", "Aggregate Root", "Агрегат: система камер, камеры")
+    Component(ValueObjects, "Value Objects", "Domain Model", "Угол, тип команды, статус камер")
+
+    ' Infrastructure Layer
+    Component(CameraRepo, "Camera Repository", "Repository", "CRUD операции \nс системами камер")
+    Component(DeviceRepo, "Device Repository", "Repository", "Работа с камерами")
+    Component(EventPublisher, "Event Publisher", "Infrastructure", "Публикация событий в Message Broker")
+    Component(EventHandler, "Event Handler", "Infrastructure", "Обработка событий от устройств")
+    Component(StateManager, "State Manager", "Infrastructure", "Управление текущим состоянием")
+}
+ContainerDb(deviceServiceDb, "Device DB", "PostgreSQL", "Устройства, конфигурации")
+ContainerDb(servicesDb, "Services Database", "PostgreSQL", "Конфигурация систем камер")
+ContainerDb(CacheStore, "Cache Store", "Redis", "Текущие состояния устройств")
+Container(MessageBroker, "Message Broker", "RabbitMQ", "Очередь событий и команд")
+Container(IotGateway, "IoT Gateway", "MQTT", "Шлюз к устройствам")
+
+System_Ext(ApiGateway, "API Gateway", "Точка входа")
+System_Ext(MonitoringService, "Monitoring Service", "Сервис мониторинга")
+System_Ext(AutomationService, "Automation Service", "Сервис автоматизации")
+
+' Связи API Layer
+Rel(ApiGateway, CameraAPI, "HTTP/REST")
+Rel(CameraAPI, CommandHandler, "Вызов команд")
+Rel(CameraAPI, QueryHandler, "Запросы данных")
+
+' Application Layer связи
+Rel(CommandHandler, CameraDomainService, "Выполнение бизнес-логики")
+Rel(QueryHandler, CameraRepo, "Получение данных")
+Rel(SchedulerService, CommandHandler, "Выполнение по расписанию")
+
+' Domain Layer связи
+Rel(CameraDomainService, CameraAggregate, "Управление агрегатом")
+Rel(CameraAggregate, ValueObjects, "Использует")
+Rel(CameraDomainService, EventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(CameraRepo, servicesDb, "SQL запросы")
+Rel(DeviceRepo, deviceServiceDb, "SQL запросы")
+Rel(CameraDomainService, CameraRepo, "Сохранение/получение")
+Rel(CameraDomainService, DeviceRepo, "Работа с устройствами")
+
+Rel(EventPublisher, MessageBroker, "Публикация событий", "AMQP")
+Rel(MessageBroker, EventHandler, "Получение событий", "AMQP")
+Rel(EventHandler, StateManager, "Обновление состояния")
+Rel(EventHandler, CameraDomainService, "Обработка событий IoT")
+
+Rel(StateManager, CacheStore, "Кэширование", "Redis Protocol")
+Rel(CommandHandler, IotGateway, "Отправка команд", "MQTT")
+
+' Внешние связи
+Rel(AutomationService, CameraAPI, "Триггеры автоматизации", "REST")
+Rel(EventPublisher, MonitoringService, "События для мониторинга", "AMQP")
+
+@enduml

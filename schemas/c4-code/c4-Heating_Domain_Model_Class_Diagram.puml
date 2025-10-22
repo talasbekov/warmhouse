@@ -1,0 +1,186 @@
+@startuml Heating_Domain_Model_Class_Diagram
+!theme plain
+skinparam classAttributeIconSize 0
+
+package "Domain Layer" {
+
+    package "Aggregates" {
+        class HeatingSystem <<Aggregate Root>> {
+            - id: HeatingSystemId
+            - name: string
+            - location: Location
+            - sensors: List<Sensor>
+            - relays: List<Relay>
+            - status: HeatingStatus
+            - targetTemperature: Temperature
+            - currentTemperature: Temperature
+            - createdAt: datetime
+            - updatedAt: datetime
+            --
+            + turnOn(): void
+            + turnOff(): void
+            + setTargetTemperature(temp: Temperature): void
+            + addSensor(sensor: Sensor): void
+            + addRelay(relay: Relay): void
+            + updateCurrentTemperature(temp: Temperature): void
+            + canExecuteCommand(command: Command): bool
+            - publishDomainEvent(event: DomainEvent): void
+        }
+
+        class Sensor <<Entity>> {
+            - id: SensorId
+            - deviceId: DeviceId
+            - type: SensorType
+            - lastReading: Temperature
+            - lastUpdate: datetime
+            - isOnline: bool
+            --
+            + updateReading(temp: Temperature): void
+            + isHealthy(): bool
+        }
+
+        class Relay <<Entity>> {
+            - id: RelayId
+            - deviceId: DeviceId
+            - state: RelayState
+            - lastStateChange: datetime
+            - isOnline: bool
+            --
+            + turnOn(): void
+            + turnOff(): void
+            + getState(): RelayState
+        }
+    }
+
+    package "Value Objects" {
+        class HeatingSystemId <<Value Object>> {
+            - value: UUID
+            --
+            + equals(other: HeatingSystemId): bool
+            + toString(): string
+        }
+
+        class Temperature <<Value Object>> {
+            - value: float
+            - unit: TemperatureUnit
+            --
+            + toCelsius(): float
+            + toFahrenheit(): float
+            + isValid(): bool
+            + equals(other: Temperature): bool
+        }
+
+        class HeatingStatus <<Value Object>> {
+            - state: HeatingState
+            - reason: string
+            --
+            + isActive(): bool
+            + canTransitionTo(newState: HeatingState): bool
+        }
+
+        class Command <<Value Object>> {
+            - type: CommandType
+            - parameters: Dict
+            - timestamp: datetime
+            --
+            + isValid(): bool
+        }
+
+        class Location <<Value Object>> {
+            - roomId: UUID
+            - houseId: UUID
+            --
+            + equals(other: Location): bool
+        }
+    }
+
+    package "Enums" {
+        enum HeatingState {
+            OFF
+            HEATING
+            IDLE
+            ERROR
+        }
+
+        enum CommandType {
+            TURN_ON
+            TURN_OFF
+            SET_TEMPERATURE
+        }
+
+        enum SensorType {
+            TEMPERATURE
+            HUMIDITY
+        }
+
+        enum RelayState {
+            ON
+            OFF
+        }
+
+        enum TemperatureUnit {
+            CELSIUS
+            FAHRENHEIT
+        }
+    }
+
+    package "Domain Events" {
+        abstract class DomainEvent {
+            - eventId: UUID
+            - aggregateId: UUID
+            - occurredAt: datetime
+        }
+
+        class HeatingTurnedOnEvent {
+            - heatingSystemId: HeatingSystemId
+            - triggeredBy: UserId
+        }
+
+        class HeatingTurnedOffEvent {
+            - heatingSystemId: HeatingSystemId
+            - triggeredBy: UserId
+        }
+
+        class TemperatureChangedEvent {
+            - heatingSystemId: HeatingSystemId
+            - oldTemperature: Temperature
+            - newTemperature: Temperature
+        }
+    }
+
+    package "Domain Services" {
+        class HeatingDomainService {
+            - eventPublisher: EventPublisher
+            --
+            + executeCommand(system: HeatingSystem, command: Command): Result
+            + validateTemperatureRange(temp: Temperature): bool
+            + calculateOptimalState(system: HeatingSystem): HeatingState
+        }
+    }
+}
+
+' Relationships
+HeatingSystem "1" *-- "0..*" Sensor
+HeatingSystem "1" *-- "0..*" Relay
+HeatingSystem --> HeatingSystemId
+HeatingSystem --> Location
+HeatingSystem --> HeatingStatus
+HeatingSystem --> Temperature
+HeatingSystem --> Command
+
+HeatingStatus --> HeatingState
+Command --> CommandType
+Sensor --> SensorType
+Sensor --> Temperature
+Relay --> RelayState
+Temperature --> TemperatureUnit
+
+DomainEvent <|-- HeatingTurnedOnEvent
+DomainEvent <|-- HeatingTurnedOffEvent
+DomainEvent <|-- TemperatureChangedEvent
+
+HeatingDomainService ..> HeatingSystem : uses
+HeatingDomainService ..> Command : uses
+HeatingSystem ..> DomainEvent : publishes
+
+@enduml

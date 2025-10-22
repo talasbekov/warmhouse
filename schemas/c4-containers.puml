@@ -1,0 +1,114 @@
+@startuml C4_Containers
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Домовладелец/Инженер/АдминистраторИС")
+
+System_Boundary(smartHome, "Smart Home Ecosystem") {
+    Container(web, "Web Application", "React", "Веб-интерфейс для управления устройствами")
+    Container(mobile, "Mobile Application", "React Native/Flutter", "Мобильное приложение")
+
+    Container(APIGateway, "API Gateway", "Python/FastAPI", "API Эндпоинты")
+
+    ' Управление структурой
+    Container(AuthService, "Auth Service", "Keycloak/Python", "Авторизация/Аутентификация: пользователи, права, роли")
+    Container(StructureService, "Structure Service", "Python/FastAPI", "Управление местоположением: дом, комната, адрес")
+    Container(NotificationService, "Notification Service", "HTTP/WebSocket", "Уведомления: сообщения, алерты")
+
+    ' Управление устройствами и автоматизация
+    Container(DeviceService, "Device Service", "Python/FastAPI", "Регистрация устройств: серийный номер, модель")
+    Container(HeatingService, "Heating Service", "Python/FastAPI", "Управление отоплением: температура, статус")
+    Container(LightService, "Light Service", "Python/FastAPI", "Управление светом: яркость, цвет, статус")
+    Container(GatesService, "Gates Service", "Python/FastAPI", "Управление воротами: положение, движение")
+    Container(CameraService, "Camera Service", "Python/FastAPI", "Видеонаблюдение: камеры, записи")
+    Container(AutomationService, "Automation Service", "Python/FastAPI", "Автоматизация: сценарии, триггеры, условия")
+    Container(IoTGateway, "IoT Gateway", "Python/FastAPI", "Промежуточный сервис между устройствами и микросервисами")
+
+    ' Мониторинг устройств
+    Container(TelemetryService, "Telemetry Service", "Python/FastAPI", "Телеметрия: история, метрики, события")
+    Container(MonitoringService, "Monitoring Service", "Python/FastAPI", "Мониторинг: текущие состояния, алерты")
+
+    Container(MessageBroker, "Message Broker", "RabbitMQ/Kafka", "Асинхронное взаимодействие между сервисами")
+    Container(CacheStore, "Cache Store", "Redis", "Кэширование данных")
+
+    ContainerDb(AuthServiceDb, "Auth DB", "PostgreSQL", "Пользователи, роли, права")
+    ContainerDb(StructureServiceDb, "Structure DB", "PostgreSQL", "Дома, комнаты, адреса")
+    ContainerDb(DeviceServiceDb, "Device DB", "PostgreSQL", "Устройства, конфигурации")
+    ContainerDb(AutomationServiceDb, "Automation DB", "PostgreSQL", "Сценарии, триггеры")
+    ContainerDb(ServicesDb, "Domain Services DB", "PostgreSQL", "Данные отопления, света, ворот")
+    ContainerDb(NotificationServiceDb, "Notification DB", "PostgreSQL", "Уведомления, сообщения")
+    ContainerDb(TelemetryServiceDb, "Telemetry DB", "TimescaleDB", "История, телеметрия, метрики")
+    ContainerDb(MonitoringServiceDb, "Monitoring DB", "PostgreSQL", "Текущие состояния")
+}
+
+System_Ext(devices, "IoT Devices", "Датчики, реле, камеры")
+System_Ext(s3, "Object Storage", "Хранилище видеозаписей")
+
+' Связи
+Rel(user, web, "Использует", "HTTPS")
+Rel(user, mobile, "Использует", "HTTPS")
+
+Rel(web, APIGateway, "API вызовы", "HTTPS/REST")
+Rel(mobile, APIGateway, "API вызовы", "HTTPS/REST")
+
+' API Gateway -> Домен: Управление структурой
+Rel(APIGateway, AuthService, "Аутентификация", "REST")
+Rel(APIGateway, StructureService, "Управление структурой", "REST")
+Rel(APIGateway, NotificationService, "Уведомления", "REST/WS")
+
+' API Gateway -> Домен: Управление устройствами
+Rel(APIGateway, DeviceService, "Регистрация устройств", "REST")
+Rel(APIGateway, HeatingService, "Управление отоплением", "REST")
+Rel(APIGateway, LightService, "Управление светом", "REST")
+Rel(APIGateway, GatesService, "Управление воротами", "REST")
+Rel(APIGateway, CameraService, "Управление камерами", "REST")
+Rel(APIGateway, AutomationService, "Управление сценариями", "REST")
+
+' API Gateway -> Домен: Мониторинг
+Rel(APIGateway, TelemetryService, "Получение истории", "REST")
+Rel(APIGateway, MonitoringService, "Получение состояний", "REST")
+
+' IoT Gateway
+Rel(devices, IoTGateway, "Телеметрия, команды", "MQTT/CoAP")
+Rel(IoTGateway, MessageBroker, "События от устройств", "AMQP")
+
+' Сервисы устройств -> Message Broker
+Rel(HeatingService, MessageBroker, "Команды/события", "AMQP")
+Rel(LightService, MessageBroker, "Команды/события", "AMQP")
+Rel(GatesService, MessageBroker, "Команды/события", "AMQP")
+Rel(CameraService, MessageBroker, "Команды/события", "AMQP")
+Rel(AutomationService, MessageBroker, "Триггеры/команды", "AMQP")
+
+' Мониторинг и Телеметрия
+Rel(MessageBroker, TelemetryService, "Сохранение событий", "AMQP")
+Rel(MessageBroker, MonitoringService, "Обновление состояний", "AMQP")
+Rel(MessageBroker, NotificationService, "Отправка уведомлений", "AMQP")
+
+' Взаимодействие между доменами
+Rel(AutomationService, HeatingService, "Выполнение сценария", "REST")
+Rel(AutomationService, LightService, "Выполнение сценария", "REST")
+Rel(AutomationService, GatesService, "Выполнение сценария", "REST")
+Rel(MonitoringService, NotificationService, "Алерты", "REST")
+
+' Сервисы -> БД
+Rel(AuthService, AuthServiceDb, "CRUD", "SQL")
+Rel(StructureService, StructureServiceDb, "CRUD", "SQL")
+Rel(DeviceService, DeviceServiceDb, "CRUD", "SQL")
+Rel(AutomationService, AutomationServiceDb, "CRUD", "SQL")
+Rel(HeatingService, ServicesDb, "CRUD", "SQL")
+Rel(LightService, ServicesDb, "CRUD", "SQL")
+Rel(GatesService, ServicesDb, "CRUD", "SQL")
+Rel(CameraService, ServicesDb, "CRUD", "SQL")
+Rel(NotificationService, NotificationServiceDb, "CRUD", "SQL")
+Rel(TelemetryService, TelemetryServiceDb, "CRUD", "SQL")
+Rel(MonitoringService, MonitoringServiceDb, "CRUD", "SQL")
+
+' Кэш
+Rel(MonitoringService, CacheStore, "Кэширование состояний", "Redis Protocol")
+Rel(StructureService, CacheStore, "Кэширование структуры", "Redis Protocol")
+
+' Хранилище
+Rel(CameraService, s3, "Сохранение записей", "S3 API")
+
+@enduml

@@ -1,0 +1,87 @@
+@startuml C4_Components_DeviceService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(deviceService, "Device Service") {
+
+    ' API Layer
+    Component(deviceAPI, "Device API", "FastAPI Controller", "REST эндпоинты: регистрация, управление устройствами")
+    Component(provisioningAPI, "Provisioning API", "FastAPI Controller", "REST эндпоинты: первичная настройка устройств")
+    Component(firmwareAPI, "Firmware API", "FastAPI Controller", "REST эндпоинты: управление прошивками")
+
+    ' Application Layer
+    Component(registerDeviceHandler, "Register Device Handler", "Application Service", "Регистрация нового устройства в системе")
+    Component(updateDeviceHandler, "Update Device Handler", "Application Service", "Обновление данных устройства")
+    Component(removeDeviceHandler, "Remove Device Handler", "Application Service", "Удаление устройства из системы")
+    Component(deviceQueryHandler, "Device Query Handler", "Application Service", "Получение информации об устройствах")
+    Component(provisioningService, "Provisioning Service", "Application Service", "Первичная настройка и конфигурация")
+    Component(firmwareService, "Firmware Service", "Application Service", "Управление версиями прошивок")
+
+    ' Domain Layer
+    Component(deviceDomainService, "Device Domain Service", "Domain Service", "Бизнес-логика регистрации устройств")
+    Component(deviceAggregate, "Device Aggregate", "Aggregate Root", "Агрегат: устройство, конфигурация, метаданные")
+    Component(valueObjects, "Value Objects", "Domain Model", "Серийный номер, модель, версия прошивки, тип устройства")
+
+    ' Infrastructure Layer
+    Component(deviceRepo, "Device Repository", "Repository", "CRUD операции с устройствами")
+    Component(firmwareRepo, "Firmware Repository", "Repository", "Хранение информации о прошивках")
+    Component(configRepo, "Configuration Repository", "Repository", "Хранение конфигураций устройств")
+    Component(deviceValidator, "Device Validator", "Infrastructure", "Валидация серийных номеров, моделей")
+    Component(eventPublisher, "Event Publisher", "Infrastructure", "Публикация событий: DeviceRegistered, DeviceRemoved")
+    Component(cacheManager, "Cache Manager", "Infrastructure", "Кэширование данных устройств")
+}
+
+ContainerDb(deviceDb, "Device Database", "PostgreSQL", "Устройства, конфигурации, прошивки")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Кэш данных устройств для быстрого доступа")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(iotGateway, "IoT Gateway", "Шлюз устройств")
+System_Ext(structureService, "Structure Service", "Привязка к местоположению")
+System_Ext(functionalServices, "Functional Services", "Heating, Light, Gates, Camera")
+
+' Связи API Layer
+Rel(apiGateway, deviceAPI, "HTTP/REST")
+Rel(apiGateway, provisioningAPI, "HTTP/REST")
+Rel(apiGateway, firmwareAPI, "HTTP/REST")
+Rel(deviceAPI, registerDeviceHandler, "Регистрация устройства")
+Rel(deviceAPI, updateDeviceHandler, "Обновление устройства")
+Rel(deviceAPI, removeDeviceHandler, "Удаление устройства")
+Rel(deviceAPI, deviceQueryHandler, "Запрос данных")
+Rel(provisioningAPI, provisioningService, "Настройка устройства")
+Rel(firmwareAPI, firmwareService, "Управление прошивками")
+
+' Application Layer связи
+Rel(registerDeviceHandler, deviceDomainService, "Создание устройства")
+Rel(updateDeviceHandler, deviceDomainService, "Обновление данных")
+Rel(removeDeviceHandler, deviceDomainService, "Удаление устройства")
+Rel(deviceQueryHandler, deviceRepo, "Получение данных")
+Rel(provisioningService, deviceDomainService, "Конфигурация")
+Rel(firmwareService, firmwareRepo, "Управление версиями")
+
+' Domain Layer связи
+Rel(deviceDomainService, deviceAggregate, "Управление агрегатом")
+Rel(deviceAggregate, valueObjects, "Использует")
+Rel(deviceDomainService, deviceValidator, "Валидация")
+Rel(deviceDomainService, eventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(deviceRepo, deviceDb, "SQL запросы")
+Rel(firmwareRepo, deviceDb, "SQL запросы")
+Rel(configRepo, deviceDb, "SQL запросы")
+Rel(deviceDomainService, deviceRepo, "Сохранение/получение")
+Rel(provisioningService, configRepo, "Сохранение конфигурации")
+
+Rel(cacheManager, cacheStore, "Кэширование устройств", "Redis Protocol")
+Rel(deviceQueryHandler, cacheManager, "Получение из кэша")
+Rel(registerDeviceHandler, cacheManager, "Инвалидация кэша")
+
+Rel(eventPublisher, messageBroker, "События: DeviceRegistered, DeviceUpdated", "AMQP")
+
+' Внешние связи
+Rel(iotGateway, deviceAPI, "Регистрация устройства", "REST")
+Rel(registerDeviceHandler, structureService, "Привязка к местоположению", "REST")
+Rel(functionalServices, deviceAPI, "Получение данных устройства", "REST")
+
+@enduml

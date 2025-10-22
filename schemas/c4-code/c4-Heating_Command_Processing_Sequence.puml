@@ -1,0 +1,107 @@
+@startuml Heating_Command_Processing_Sequence
+!theme plain
+autonumber
+
+actor User
+participant "API Gateway" as Gateway
+participant "Heating API" as API
+participant "Command Handler" as Handler
+participant "Heating Domain\nService" as DomainService
+participant "Heating System\nAggregate" as Aggregate
+participant "Heating\nRepository" as Repo
+participant "Event Publisher" as EventPub
+participant "Message Broker" as Broker
+participant "State Cache" as Cache
+participant "IoT Gateway" as IoT
+
+User -> Gateway: POST /heating/systems/{id}/turn-on
+activate Gateway
+
+Gateway -> API: executeCommand(systemId, TurnOnCommand)
+activate API
+
+API -> Handler: handle(TurnOnCommand)
+activate Handler
+
+Handler -> Repo: getById(systemId)
+activate Repo
+Repo -> Repo: query database
+Repo --> Handler: HeatingSystem
+deactivate Repo
+
+Handler -> DomainService: executeCommand(system, command)
+activate DomainService
+
+DomainService -> DomainService: validateCommand(command)
+
+alt Command is valid
+    DomainService -> Aggregate: canExecuteCommand(command)
+    activate Aggregate
+
+    Aggregate -> Aggregate: checkSensors()
+    Aggregate -> Aggregate: checkRelays()
+    Aggregate --> DomainService: true
+    deactivate Aggregate
+
+    DomainService -> Aggregate: turnOn()
+    activate Aggregate
+
+    Aggregate -> Aggregate: setState(HEATING)
+    Aggregate -> Aggregate: updateTimestamp()
+
+    Aggregate -> Aggregate: publishDomainEvent(\nHeatingTurnedOnEvent)
+    activate Aggregate
+    Aggregate -> EventPub: publish(HeatingTurnedOnEvent)
+    activate EventPub
+    EventPub -> Broker: send(event)
+    activate Broker
+    Broker --> EventPub: ack
+    deactivate Broker
+    EventPub --> Aggregate: success
+    deactivate EventPub
+    deactivate Aggregate
+
+    Aggregate --> DomainService: success
+    deactivate Aggregate
+
+    DomainService -> Repo: save(system)
+    activate Repo
+    Repo -> Repo: persist to database
+    Repo --> DomainService: success
+    deactivate Repo
+
+    DomainService -> Cache: updateState(systemId, state)
+    activate Cache
+    Cache --> DomainService: success
+    deactivate Cache
+
+    DomainService -> IoT: sendCommand(deviceId, TurnOnRelay)
+    activate IoT
+    IoT --> DomainService: command sent
+    deactivate IoT
+
+    DomainService --> Handler: Result.success()
+
+else Command is invalid
+    DomainService --> Handler: Result.failure("Invalid command")
+end
+
+deactivate DomainService
+
+Handler --> API: CommandResult
+deactivate Handler
+
+API --> Gateway: 200 OK {status: "success"}
+deactivate API
+
+Gateway --> User: Response
+deactivate Gateway
+
+note over Broker
+    Event будет обработан:
+    - Monitoring Service (обновит состояние)
+    - Telemetry Service (запишет событие)
+    - Notification Service (отправит уведомление)
+end note
+
+@enduml

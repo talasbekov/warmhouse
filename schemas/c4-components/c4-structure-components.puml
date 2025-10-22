@@ -1,0 +1,81 @@
+@startuml C4_Components_StructureService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+Container_Boundary(structureService, "Structure Service") {
+
+    ' API Layer
+    Component(structureAPI, "Structure API", "FastAPI Controller", "REST эндпоинты: управление домами, комнатами")
+    Component(deviceLocationAPI, "Device Location API", "FastAPI Controller", "REST эндпоинты: привязка устройств к местоположению")
+
+    ' Application Layer
+    Component(houseCommandHandler, "House Command Handler", "Application Service", "Создание, обновление, удаление домов")
+    Component(roomCommandHandler, "Room Command Handler", "Application Service", "Создание, обновление, удаление комнат")
+    Component(deviceLocationHandler, "Device Location Handler", "Application Service", "Привязка устройств к комнатам")
+    Component(structureQueryHandler, "Structure Query Handler", "Application Service", "Получение структуры домов и комнат")
+    Component(hierarchyService, "Hierarchy Service", "Application Service", "Управление иерархией: страна->город->дом->комната")
+
+    ' Domain Layer
+    Component(structureDomainService, "Structure Domain Service", "Domain Service", "Бизнес-логика управления структурой")
+    Component(houseAggregate, "House Aggregate", "Aggregate Root", "Агрегат: дом с комнатами")
+    Component(roomEntity, "Room Entity", "Entity", "Сущность: комната/помещение")
+    Component(valueObjects, "Value Objects", "Domain Model", "Адрес, координаты, местоположение устройства")
+
+    ' Infrastructure Layer
+    Component(houseRepo, "House Repository", "Repository", "CRUD операции с домами")
+    Component(roomRepo, "Room Repository", "Repository", "CRUD операции с комнатами")
+    Component(deviceLocationRepo, "Device Location Repository", "Repository", "Привязка устройств к местам")
+    Component(eventPublisher, "Event Publisher", "Infrastructure", "Публикация событий: HouseCreated, RoomAdded, DeviceMoved")
+    Component(cacheManager, "Cache Manager", "Infrastructure", "Кэширование структуры домов")
+}
+
+ContainerDb(structureDb, "Structure Database", "PostgreSQL", "Дома, комнаты, адреса, местоположения")
+ContainerDb(cacheStore, "Cache Store", "Redis", "Кэш структуры для быстрого доступа")
+Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий")
+
+System_Ext(apiGateway, "API Gateway", "Точка входа")
+System_Ext(deviceService, "Device Service", "Сервис устройств")
+System_Ext(otherServices, "Other Services", "Heating, Light, Gates и др.")
+
+' Связи API Layer
+Rel(apiGateway, structureAPI, "HTTP/REST")
+Rel(apiGateway, deviceLocationAPI, "HTTP/REST")
+Rel(structureAPI, houseCommandHandler, "Команды управления домами")
+Rel(structureAPI, roomCommandHandler, "Команды управления комнатами")
+Rel(structureAPI, structureQueryHandler, "Запрос структуры")
+Rel(deviceLocationAPI, deviceLocationHandler, "Привязка устройств")
+
+' Application Layer связи
+Rel(houseCommandHandler, structureDomainService, "Создание/обновление дома")
+Rel(roomCommandHandler, structureDomainService, "Создание/обновление комнаты")
+Rel(deviceLocationHandler, structureDomainService, "Изменение местоположения")
+Rel(structureQueryHandler, houseRepo, "Получение данных")
+Rel(hierarchyService, structureDomainService, "Управление иерархией")
+
+' Domain Layer связи
+Rel(structureDomainService, houseAggregate, "Управление агрегатом")
+Rel(houseAggregate, roomEntity, "Содержит комнаты")
+Rel(houseAggregate, valueObjects, "Использует")
+Rel(roomEntity, valueObjects, "Использует")
+Rel(structureDomainService, eventPublisher, "Публикация domain events")
+
+' Infrastructure связи
+Rel(houseRepo, structureDb, "SQL запросы")
+Rel(roomRepo, structureDb, "SQL запросы")
+Rel(deviceLocationRepo, structureDb, "SQL запросы")
+Rel(structureDomainService, houseRepo, "Сохранение/получение")
+Rel(structureDomainService, roomRepo, "Работа с комнатами")
+Rel(deviceLocationHandler, deviceLocationRepo, "Привязка устройств")
+
+Rel(cacheManager, cacheStore, "Кэширование структуры", "Redis Protocol")
+Rel(structureQueryHandler, cacheManager, "Получение из кэша")
+Rel(houseCommandHandler, cacheManager, "Инвалидация кэша")
+
+Rel(eventPublisher, messageBroker, "События: HouseCreated, RoomAdded", "AMQP")
+
+' Внешние связи
+Rel(deviceService, deviceLocationAPI, "Регистрация местоположения", "REST")
+Rel(otherServices, structureAPI, "Получение структуры", "REST")
+
+@enduml
