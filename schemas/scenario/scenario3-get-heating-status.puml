@@ -1,0 +1,105 @@
+@startuml
+!theme plain
+title Сценарий 1 (обновленный): Асинхронная установка температуры с requestId
+
+actor "Пользователь" as User
+participant "Web App" as Web
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Heating Service" as Heating
+participant "Message Broker" as Broker
+participant "Heating Worker" as Worker
+participant "IoT Gateway" as IoT
+participant "Event Bus\n(WebSocket)" as Events
+database "Heating DB" as HeatingDB
+
+== Аутентификация ==
+User -> Web: Открыть приложение
+Web -> Gateway: POST /api/auth/login\n{email, password}
+Gateway -> Auth: Проверить credentials
+Auth --> Gateway: 200 OK\n{accessToken, refreshToken, user}
+Gateway --> Web: JWT Token
+
+== Установка WebSocket соединения ==
+Web -> Events: Открыть WebSocket соединение\nws://api.smarthome.example.com/ws
+Events --> Web: Connection established
+Web -> Events: Subscribe to channel\n"heating/room-456/events"
+Events --> Web: Subscribed successfully
+
+== Установка температуры (асинхронно) ==
+User -> Web: Установить 22°C в гостиной
+Web -> Gateway: POST /api/heating/set-temperature\nAuthorization: Bearer <token>\n{roomId: "room-456", targetTemperature: 22}
+
+Gateway -> Auth: Валидировать JWT токен
+Auth --> Gateway: Token valid, userId
+
+Gateway -> Heating: POST /set-temperature\n{roomId: "room-456", targetTemperature: 22}
+
+Heating -> HeatingDB: SELECT room WHERE id="room-456"
+HeatingDB --> Heating: Room exists, has heating system
+
+Heating -> Heating: Генерировать requestId\nrequestId = "req-abc123"
+
+Heating -> Broker: Publish command to queue\n{"requestId": "req-abc123",\n"roomId": "room-456",\n"targetTemperature": 22,\n"userId": "user-789"}
+
+note right of Heating
+  Команда отправлена в очередь
+  и будет обработана асинхронно
+  Worker'ами
+end note
+
+Heating --> Gateway: **202 Accepted**\n{"message": "Temperature change command accepted",\n"requestId": "req-abc123",\n"roomId": "room-456",\n"targetTemperature": 22,\n"subscribeChannel": "heating/room-456/events",\n"estimatedCompletionTime": 900}
+
+Gateway --> Web: 202 Accepted + requestId
+Web -> User: ✅ "Команда принята"\nrequestId: req-abc123\n"Ожидайте уведомления..."
+
+note right of Web
+  Клиент получил requestId
+  и теперь ждет события
+  через WebSocket
+end note
+
+== Асинхронная обработка Worker'ом ==
+Broker -> Worker: Consume command from queue\n{requestId: "req-abc123", roomId, targetTemp: 22}
+
+Worker -> HeatingDB: UPDATE heating_config\nSET target_temperature=22\nWHERE room_id="room-456"
+HeatingDB --> Worker: Updated
+
+Worker -> Events: Publish event\n**"target_temperature_updated"**\n{event: "target_temperature_updated",\nrequestId: "req-abc123",\nroomId: "room-456",\ntargetTemperature: 22,\ntimestamp: "..."}
+
+Events -> Web: WebSocket push event
+Web -> User: Уведомление:\n"Целевая температура обновлена: 22°C"
+
+Worker -> IoT: Отправить команду\nInclude heating relay\ndeviceId: "relay-heat-001"
+IoT --> Worker: Relay activated
+
+Worker -> Events: Publish event\n**"heating_started"**\n{event: "heating_started",\nroomId: "room-456",\ncurrentTemperature: 20.5,\ntargetTemperature: 22,\nreason: "Target temperature set by user"}
+
+Events -> Web: WebSocket push event
+Web -> User: Уведомление:\n"Отопление включено 🔥"
+
+== Мониторинг температуры ==
+loop Каждые 2 минуты
+  IoT -> Worker: Получить текущую температуру\nот sensor-temp-001
+  Worker -> Events: Publish event\n**"temperature_changing"**\n{event: "temperature_changing",\nrequestId: "req-abc123",\ncurrentTemperature: 20.5→21.0→21.5,\ntargetTemperature: 22,\nprogress: 33%→66%→93%,\nestimatedTimeRemaining: 600→300→60}
+  Events -> Web: WebSocket push event
+  Web -> User: Обновление:\n"21.5°C (93% готово)"
+end
+
+== Достижение целевой температуры ==
+IoT -> Worker: Температура достигла 22.0°C
+Worker -> IoT: Отправить команду\nВыключить отопление
+IoT --> Worker: Relay deactivated
+
+Worker -> Events: Publish event\n**"temperature_reached"**\n{event: "temperature_reached",\nrequestId: "req-abc123",\nroomId: "room-456",\ncurrentTemperature: 22.0,\ntargetTemperature: 22,\ntimeElapsed: 900}
+
+Events -> Web: WebSocket push event
+Web -> User: Уведомление:\n"Целевая температура достигнута!"\nВремя: 15 минут
+
+note right of Web
+  Полный цикл завершен
+  requestId: req-abc123
+  Status: Completed
+end note
+
+@enduml

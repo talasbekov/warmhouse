@@ -1,0 +1,198 @@
+openapi: 3.0.0
+info:
+  title: Smart Home Authentication API
+  version: 1.0.0
+  description: API для авторизации и аутентификации пользователей
+
+servers:
+  - url: https://api.smarthome.example.com
+    description: Production сервер
+  - url: http://localhost:8080
+    description: Development сервер
+
+tags:
+  - name: Authentication
+    description: Операции аутентификации и авторизации
+
+paths:
+  /api/auth/login:
+    post:
+      summary: Вход в систему
+      description: Аутентификация пользователя по email и паролю
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email пользователя
+                password:
+                  type: string
+                  format: password
+                  description: Пароль пользователя
+            examples:
+              validLogin:
+                summary: Корректные данные для входа
+                value:
+                  email: "user@example.com"
+                  password: "SecurePass123!"
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    description: JWT токен для доступа к API
+                  refreshToken:
+                    type: string
+                    description: Токен для обновления access token
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: Уникальный идентификатор пользователя
+                      name:
+                        type: string
+                        description: Имя пользователя
+                      email:
+                        type: string
+                        format: email
+                        description: Email пользователя
+                      role:
+                        type: string
+                        enum: [admin, user, guest]
+                        description: Роль пользователя в системе
+              examples:
+                successResponse:
+                  summary: Успешный вход
+                  value:
+                    accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                    user:
+                      id: "usr-12345"
+                      name: "Иван Иванов"
+                      email: "user@example.com"
+                      role: "user"
+        '400':
+          description: Неправильный формат данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidEmail:
+                  summary: Неверный формат email
+                  value:
+                    error: "Invalid email format"
+                    code: "INVALID_EMAIL"
+                missingPassword:
+                  summary: Отсутствует пароль
+                  value:
+                    error: "Password is required"
+                    code: "MISSING_PASSWORD"
+        '401':
+          description: Неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidCredentials:
+                  summary: Неверные учетные данные
+                  value:
+                    error: "Invalid email or password"
+                    code: "INVALID_CREDENTIALS"
+        '429':
+          description: Слишком много попыток входа
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      retryAfter:
+                        type: integer
+                        description: Через сколько секунд можно повторить попытку
+              examples:
+                tooManyAttempts:
+                  summary: Превышен лимит попыток
+                  value:
+                    error: "Too many login attempts. Please try again later"
+                    code: "RATE_LIMIT_EXCEEDED"
+                    retryAfter: 300
+
+  /api/auth/logout:
+    delete:
+      summary: Выход из системы
+      description: Завершение сеанса пользователя и инвалидация токена
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход из системы
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном выходе
+              examples:
+                successLogout:
+                  summary: Успешный выход
+                  value:
+                    message: "Successfully logged out"
+        '401':
+          description: Невалидный или отсутствующий токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidToken:
+                  summary: Невалидный токен
+                  value:
+                    error: "Invalid or expired token"
+                    code: "INVALID_TOKEN"
+                missingToken:
+                  summary: Токен не передан
+                  value:
+                    error: "Authorization token is required"
+                    code: "MISSING_TOKEN"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при входе. Формат заголовка - Authorization Bearer <token>
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+        code:
+          type: string
+          description: Код ошибки для программной обработки

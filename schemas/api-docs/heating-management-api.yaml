@@ -1,0 +1,384 @@
+openapi: 3.0.0
+info:
+  title: Smart Home Heating Management API
+  version: 1.0.0
+  description: API для управления системой отопления умного дома
+
+servers:
+  - url: https://api.smarthome.example.com
+    description: Production сервер
+  - url: http://localhost:8082
+    description: Development сервер
+
+tags:
+  - name: Heating Control
+    description: Операции управления отоплением
+
+paths:
+  /api/heating/set-temperature:
+    post:
+      summary: Установить целевую температуру
+      description: Установка целевой температуры для системы отопления в указанной комнате
+      tags:
+        - Heating Control
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - roomId
+                - targetTemperature
+              properties:
+                roomId:
+                  type: string
+                  description: ID комнаты для установки температуры
+                targetTemperature:
+                  type: number
+                  format: float
+                  minimum: 5
+                  maximum: 30
+                  description: Целевая температура в градусах Цельсия
+            examples:
+              setTemperature:
+                summary: Установка температуры 22°C
+                value:
+                  roomId: "room-456"
+                  targetTemperature: 22
+              setLowTemperature:
+                summary: Установка минимальной температуры
+                value:
+                  roomId: "room-789"
+                  targetTemperature: 15
+      responses:
+        '200':
+          description: Целевая температура успешно установлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешной установке
+                  roomId:
+                    type: string
+                    description: ID комнаты
+                  targetTemperature:
+                    type: number
+                    description: Установленная целевая температура
+              examples:
+                successResponse:
+                  summary: Успешная установка температуры
+                  value:
+                    message: "Temperature set successfully"
+                    roomId: "room-456"
+                    targetTemperature: 22
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                temperatureOutOfRange:
+                  summary: Температура вне допустимого диапазона
+                  value:
+                    error: "Temperature must be between 5 and 30 degrees Celsius"
+                    code: "TEMPERATURE_OUT_OF_RANGE"
+                missingRoomId:
+                  summary: Отсутствует ID комнаты
+                  value:
+                    error: "RoomId is required"
+                    code: "MISSING_ROOM_ID"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Комната не найдена или в комнате нет системы отопления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                roomNotFound:
+                  summary: Комната не существует
+                  value:
+                    error: "Room with specified ID not found"
+                    code: "ROOM_NOT_FOUND"
+                noHeatingSystem:
+                  summary: В комнате нет системы отопления
+                  value:
+                    error: "No heating system found in this room"
+                    code: "NO_HEATING_SYSTEM"
+
+  /api/heating/{roomId}/status:
+    get:
+      summary: Получить статус отопления
+      description: Получение текущего статуса системы отопления в указанной комнате
+      tags:
+        - Heating Control
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Уникальный идентификатор комнаты
+      responses:
+        '200':
+          description: Статус отопления получен успешно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roomId:
+                    type: string
+                    description: ID комнаты
+                  currentTemperature:
+                    type: number
+                    format: float
+                    description: Текущая температура в градусах Цельсия
+                  targetTemperature:
+                    type: number
+                    format: float
+                    description: Целевая температура в градусах Цельсия
+                  mode:
+                    type: string
+                    enum: [auto, manual, off]
+                    description: Режим работы системы отопления
+                  heatingActive:
+                    type: boolean
+                    description: Статус отопления (true - включено, false - выключено)
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                    description: Время последнего обновления данных
+              examples:
+                heatingOn:
+                  summary: Отопление активно
+                  value:
+                    roomId: "room-456"
+                    currentTemperature: 20.5
+                    targetTemperature: 22
+                    mode: "auto"
+                    heatingActive: true
+                    lastUpdated: "2025-10-22T14:30:00Z"
+                heatingOff:
+                  summary: Отопление выключено
+                  value:
+                    roomId: "room-789"
+                    currentTemperature: 23
+                    targetTemperature: 22
+                    mode: "auto"
+                    heatingActive: false
+                    lastUpdated: "2025-10-22T14:28:00Z"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Комната не найдена или нет системы отопления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/heating/power:
+    post:
+      summary: Включить/выключить отопление
+      description: Управление питанием системы отопления в указанной комнате
+      tags:
+        - Heating Control
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - roomId
+                - action
+              properties:
+                roomId:
+                  type: string
+                  description: ID комнаты для управления отоплением
+                action:
+                  type: string
+                  enum: [on, off]
+                  description: Действие (on - включить, off - выключить)
+            examples:
+              turnOn:
+                summary: Включить отопление
+                value:
+                  roomId: "room-456"
+                  action: "on"
+              turnOff:
+                summary: Выключить отопление
+                value:
+                  roomId: "room-789"
+                  action: "off"
+      responses:
+        '200':
+          description: Команда выполнена успешно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о результате операции
+              examples:
+                heatingTurnedOn:
+                  summary: Отопление включено
+                  value:
+                    message: "Heating turned on successfully"
+                heatingTurnedOff:
+                  summary: Отопление выключено
+                  value:
+                    message: "Heating turned off successfully"
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidAction:
+                  summary: Неверное действие
+                  value:
+                    error: "Action must be either 'on' or 'off'"
+                    code: "INVALID_ACTION"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Комната не найдена или нет системы отопления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Невозможно выполнить команду в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                systemInOffMode:
+                  summary: Система в режиме OFF
+                  value:
+                    error: "Cannot turn on heating when system is in 'off' mode. Please change mode first"
+                    code: "SYSTEM_MODE_OFF"
+
+  /api/heating/{roomId}/current-temperature:
+    get:
+      summary: Получить текущую температуру
+      description: Получение текущей температуры от датчика в указанной комнате
+      tags:
+        - Heating Control
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Уникальный идентификатор комнаты
+      responses:
+        '200':
+          description: Текущая температура получена успешно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: number
+                    format: float
+                    description: Текущая температура в градусах Цельсия
+                  sensorId:
+                    type: string
+                    description: ID датчика температуры
+                  measuredAt:
+                    type: string
+                    format: date-time
+                    description: Время измерения температуры
+                  roomId:
+                    type: string
+                    description: ID комнаты
+              examples:
+                currentTemperature:
+                  summary: Текущая температура в гостиной
+                  value:
+                    temperature: 21.5
+                    sensorId: "sensor-temp-001"
+                    measuredAt: "2025-10-22T14:35:00Z"
+                    roomId: "room-456"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Комната или датчик не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                sensorNotFound:
+                  summary: Датчик температуры не найден
+                  value:
+                    error: "Temperature sensor not found in this room"
+                    code: "SENSOR_NOT_FOUND"
+        '503':
+          description: Датчик не отвечает или недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                sensorUnavailable:
+                  summary: Датчик недоступен
+                  value:
+                    error: "Temperature sensor is not responding"
+                    code: "SENSOR_UNAVAILABLE"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при входе
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+        code:
+          type: string
+          description: Код ошибки для программной обработки

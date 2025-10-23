@@ -221,7 +221,9 @@
 
 **Диаграмма кода (Code)**
 
-Добавьте одну диаграмму или несколько.
+![C4 Diagram](./schemas/c4-code/Automation_Scenario_Execution_Sequence.png)
+![C4 Diagram](./schemas/c4-code/Heating_Command_Processing_Sequence.png)
+![C4 Diagram](./schemas/c4-code/Heating_Domain_Model_Class_Diagram.png)
 
 # Задание 3. Разработка ER-диаграммы
 
@@ -231,11 +233,114 @@
 
 ### 1. Тип API
 
-Укажите, какой тип API вы будете использовать для взаимодействия микросервисов. Объясните своё решение.
+В основном использую REST API, за исключением где микросервисами устанавливаются параметры для устройств.
+Асинхронная установка целевой температуры для системы отопления.
+
+**Процесс выполнения:**
+1. Команда принимается немедленно (202 Accepted)
+2. Возвращается requestId для отслеживания
+3. Команда обрабатывается асинхронно через Message Broker
+4. События выполнения публикуются в канал `heating/{roomId}/events`
+
+                    ┌─────────────┐
+                    │  Frontend   │
+                    └──────┬──────┘
+                           │
+                    1. POST request
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ API Gateway │
+                    └──────┬──────┘
+                           │
+                    2. Forward
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  Heating    │◄────────┐
+                    │  Service    │         │
+                    └──────┬──────┘         │
+                           │                │
+                    3. 202 Accepted         │
+                           │                │
+                           ▼                │
+                    ┌─────────────┐         │
+                    │ API Gateway │         │
+                    └──────┬──────┘         │
+                           │                │
+                    4. Response             │
+                           │                │
+                           ▼                │
+                    ┌─────────────┐         │
+                    │  Frontend   │         │
+                    └─────────────┘         │
+                                            │
+                                      5. Command
+                                       to broker
+                                            │
+                    ┌─────────────┐         │
+                    │   Message   │◄────────┘
+                    │   Broker    │
+                    │ (RabbitMQ)  │
+                    └──────┬──────┘
+                           │
+                    6. Subscribe
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ IoT Gateway │
+                    └──────┬──────┘
+                           │
+                    7. MQTT/CoAP
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Device    │
+                    │   (Relay)   │
+                    └──────┬──────┘
+                           │
+                    8. Включение
+                           │
+                    9. State "on"
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ IoT Gateway │
+                    └──────┬──────┘
+                           │
+                    10. Publish event
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Message   │
+                    │   Broker    │
+                    └──────┬──────┘
+                           │
+                  ┌────────┼────────┬────────────┐
+                  │        │        │            │
+                  ▼        ▼        ▼            ▼
+                 ┌────┐ ┌─────┐  ┌────┐  ┌──────────────┐
+                 │Heat│ │Tele │  │Moni│  │Notification  │
+                 │ing │ │metry│  │tor │  │   Service    │
+                 └────┘ └─────┘  └────┘  └───────┬──────┘
+                                                 │
+                        ┌─────────────┐          │
+    11. WebSocket       │   Message   │          │
+   Push уведомление ◄───│   Broker    │◄─────────┘
+          │             │ (RabbitMQ)  │
+          │             └─────────────┘
+          │
+          ▼
+   ┌─────────────┐
+   │  Frontend   │ 
+   └─────────────┘
+   "Отопление включено!"
 
 ### 2. Документация API
 
-Здесь приложите ссылки на документацию API для микросервисов, которые вы спроектировали в первой части проектной работы. Для документирования используйте Swagger/OpenAPI или AsyncAPI.
+![API_docs](./schemas/api-docs/auth-api.yaml)
+![API_docs](./schemas/api-docs/device-management-api.yaml)
+![API_docs](./schemas/api-docs/heating-management-api.yaml)
 
 # Задание 5. Работа с docker и docker-compose
 

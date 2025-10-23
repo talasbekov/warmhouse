@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+title Сценарий 1: Вход пользователя и установка температуры
+
+actor "Пользователь" as User
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Heating Service" as Heating
+database "Auth DB" as AuthDB
+database "Heating DB" as HeatingDB
+
+== Аутентификация ==
+User -> Gateway: POST /api/auth/login\n{email, password}
+Gateway -> Auth: Проверить учетные данные
+Auth -> AuthDB: SELECT user WHERE email=?
+AuthDB --> Auth: User data
+Auth -> Auth: Проверить пароль (hash)
+Auth -> Auth: Генерировать JWT токен
+Auth --> Gateway: 200 OK\n{accessToken, refreshToken, user}
+Gateway --> User: 200 OK\n{accessToken, refreshToken, user}
+
+== Установка температуры ==
+User -> Gateway: POST /api/heating/set-temperature\nAuthorization: Bearer <token>\n{roomId, targetTemperature: 22}
+Gateway -> Auth: Валидировать JWT токен
+Auth --> Gateway: Token valid, userId
+Gateway -> Heating: POST /set-temperature\n{roomId, targetTemperature: 22}
+Heating -> HeatingDB: SELECT room WHERE id=?
+HeatingDB --> Heating: Room exists, has heating system
+Heating -> HeatingDB: UPDATE heating_config\nSET target_temp=22\nWHERE room_id=?
+HeatingDB --> Heating: Updated
+Heating --> Gateway: 200 OK\n{message, roomId, targetTemperature}
+Gateway --> User: 200 OK\n{message: "Temperature set successfully"}
+
+@enduml

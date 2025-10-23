@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+title Сценарий 2: Регистрация нового датчика температуры
+
+actor "Пользователь" as User
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Device Service" as Device
+participant "Structure Service" as Structure
+database "Device DB" as DeviceDB
+database "Structure DB" as StructureDB
+
+== Аутентификация ==
+User -> Gateway: POST /api/auth/login\n{email, password}
+Gateway -> Auth: Проверить учетные данные
+Auth --> Gateway: 200 OK\n{accessToken, user}
+Gateway --> User: 200 OK\n{accessToken, user}
+
+== Регистрация устройства ==
+User -> Gateway: POST /api/devices/register\nAuthorization: Bearer <token>\n{deviceType: "temperature_sensor",\nserialNumber: "SN-12345-TEMP",\nname: "Датчик в гостиной",\nlocationId: "room-456",\nmodelId: "model-xiaomi-temp-v2"}
+
+Gateway -> Auth: Валидировать JWT токен
+Auth --> Gateway: Token valid, userId, role: "user"
+
+alt Проверка прав
+    Gateway -> Auth: Проверить права для регистрации
+    Auth --> Gateway: Permission granted
+end
+
+Gateway -> Device: POST /register\n{deviceType, serialNumber, name, locationId, modelId}
+
+Device -> DeviceDB: SELECT device\nWHERE serial_number=?
+DeviceDB --> Device: Not found (OK)
+
+Device -> Structure: GET /api/locations/room-456
+Structure -> StructureDB: SELECT location WHERE id=?
+StructureDB --> Structure: Location exists
+Structure --> Device: 200 OK {locationData}
+
+Device -> Device: Генерировать deviceId
+Device -> Device: Генерировать activationToken
+
+Device -> DeviceDB: INSERT INTO devices\n(id, type, serial, name, location, model, status)
+DeviceDB --> Device: Inserted
+
+Device --> Gateway: 201 Created\n{deviceId, activationToken, device}
+Gateway --> User: 201 Created\n{deviceId, activationToken, device}
+
+@enduml

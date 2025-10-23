@@ -1,0 +1,403 @@
+openapi: 3.0.0
+info:
+  title: Smart Home Device Management API
+  version: 1.0.0
+  description: API для управления устройствами умного дома
+
+servers:
+  - url: https://api.smarthome.example.com
+    description: Production сервер
+  - url: http://localhost:8081
+    description: Development сервер
+
+tags:
+  - name: Device Registration
+    description: Операции регистрации и управления устройствами
+
+paths:
+  /api/devices/register:
+    post:
+      summary: Зарегистрировать новое устройство
+      description: Регистрация нового IoT устройства в системе умного дома
+      tags:
+        - Device Registration
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceType
+                - serialNumber
+                - name
+                - locationId
+              properties:
+                deviceType:
+                  type: string
+                  enum: [temperature_sensor, humidity_sensor, motion_sensor, light_relay, heating_relay, gate_controller, camera]
+                  description: Тип устройства
+                serialNumber:
+                  type: string
+                  pattern: '^[A-Z0-9-]{8,32}$'
+                  description: Уникальный серийный номер устройства
+                name:
+                  type: string
+                  minLength: 3
+                  maxLength: 100
+                  description: Название/описание устройства
+                locationId:
+                  type: string
+                  description: ID комнаты/помещения где установлено устройство
+                modelId:
+                  type: string
+                  description: ID существующей модели устройства (если известна)
+                customModel:
+                  type: string
+                  maxLength: 100
+                  description: Название кастомной модели (если modelId не указан)
+              oneOf:
+                - required: [modelId]
+                - required: [customModel]
+            examples:
+              withKnownModel:
+                summary: Регистрация с известной моделью
+                value:
+                  deviceType: "temperature_sensor"
+                  serialNumber: "SN-12345-TEMP"
+                  name: "Датчик температуры в гостиной"
+                  locationId: "room-456"
+                  modelId: "model-xiaomi-temp-v2"
+              withCustomModel:
+                summary: Регистрация с кастомной моделью
+                value:
+                  deviceType: "temperature_sensor"
+                  serialNumber: "SN-67890-TEMP"
+                  name: "Датчик в спальне"
+                  locationId: "room-789"
+                  customModel: "Custom Arduino Temperature Sensor"
+      responses:
+        '201':
+          description: Устройство успешно зарегистрировано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deviceId:
+                    type: string
+                    description: Уникальный идентификатор устройства
+                  activationToken:
+                    type: string
+                    description: Токен для активации и первичной настройки устройства
+                  device:
+                    $ref: '#/components/schemas/Device'
+              examples:
+                successResponse:
+                  summary: Успешная регистрация
+                  value:
+                    deviceId: "dev-abc123"
+                    activationToken: "act-tok-xyz789qwe456"
+                    device:
+                      id: "dev-abc123"
+                      deviceType: "temperature_sensor"
+                      serialNumber: "SN-12345-TEMP"
+                      name: "Датчик температуры в гостиной"
+                      locationId: "room-456"
+                      modelId: "model-xiaomi-temp-v2"
+                      status: "pending"
+                      registeredAt: "2025-10-22T12:30:00Z"
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidSerialNumber:
+                  summary: Неверный формат серийного номера
+                  value:
+                    error: "Invalid serial number format"
+                    code: "INVALID_SERIAL_NUMBER"
+                missingModel:
+                  summary: Не указана модель
+                  value:
+                    error: "Either modelId or customModel must be provided"
+                    code: "MODEL_REQUIRED"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Недостаточно прав для регистрации устройств
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Указанное место установки не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Устройство с таким серийным номером уже зарегистрировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/devices:
+    get:
+      summary: Получить список устройств
+      description: Получение списка зарегистрированных устройств с фильтрацией, поиском и пагинацией
+      tags:
+        - Device Registration
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [temperature_sensor, humidity_sensor, motion_sensor, light_relay, heating_relay, gate_controller, camera]
+          description: Фильтр по типу устройства
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Фильтр по ID комнаты/помещения
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, active, inactive, error]
+          description: Фильтр по статусу устройства
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 2
+          description: Поиск по названию устройства (частичное совпадение)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Количество устройств на странице
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Количество пропускаемых устройств
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [name, deviceType, registeredAt, status]
+            default: registeredAt
+          description: Поле для сортировки
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Порядок сортировки
+      responses:
+        '200':
+          description: Успешное получение списка устройств
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Общее количество устройств (с учетом фильтров)
+                      limit:
+                        type: integer
+                        description: Количество устройств на странице
+                      offset:
+                        type: integer
+                        description: Текущее смещение
+                      returned:
+                        type: integer
+                        description: Количество возвращенных устройств
+              examples:
+                allDevices:
+                  summary: Все устройства без фильтров
+                  value:
+                    data:
+                      - id: "dev-abc123"
+                        deviceType: "temperature_sensor"
+                        serialNumber: "SN-12345-TEMP"
+                        name: "Датчик температуры в гостиной"
+                        locationId: "room-456"
+                        modelId: "model-xiaomi-temp-v2"
+                        status: "active"
+                        registeredAt: "2025-10-22T12:30:00Z"
+                        lastSeen: "2025-10-22T14:25:00Z"
+                    meta:
+                      total: 1
+                      limit: 50
+                      offset: 0
+                      returned: 1
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Недостаточно прав для просмотра устройств
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/devices/{deviceId}:
+    delete:
+      summary: Удалить устройство из системы
+      description: Удаление зарегистрированного устройства. Требуются права администратора. Нельзя удалить активное устройство.
+      tags:
+        - Device Registration
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Уникальный идентификатор устройства
+      responses:
+        '200':
+          description: Устройство успешно удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном удалении
+                  deviceId:
+                    type: string
+                    description: ID удаленного устройства
+              examples:
+                successDelete:
+                  summary: Успешное удаление
+                  value:
+                    message: "Device deleted successfully"
+                    deviceId: "dev-abc123"
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Недостаточно прав для удаления устройств
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Нельзя удалить активное устройство
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при входе
+
+  schemas:
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор устройства
+        deviceType:
+          type: string
+          enum: [temperature_sensor, humidity_sensor, motion_sensor, light_relay, heating_relay, gate_controller, camera]
+          description: Тип устройства
+        serialNumber:
+          type: string
+          description: Серийный номер устройства
+        name:
+          type: string
+          description: Название устройства
+        locationId:
+          type: string
+          description: ID комнаты где установлено устройство
+        modelId:
+          type: string
+          description: ID модели устройства
+        customModel:
+          type: string
+          description: Название кастомной модели
+        status:
+          type: string
+          enum: [pending, active, inactive, error]
+          description: Текущий статус устройства
+        registeredAt:
+          type: string
+          format: date-time
+          description: Дата и время регистрации
+        lastSeen:
+          type: string
+          format: date-time
+          description: Последняя активность устройства
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+        code:
+          type: string
+          description: Код ошибки для программной обработки
