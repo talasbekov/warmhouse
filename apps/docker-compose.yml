@@ -7,7 +7,6 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: smarthome
     volumes:
-      - postgres_data:/var/lib/postgresql/data
       - ./smart_home/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "5432:5432"
@@ -48,9 +47,6 @@ services:
     restart: unless-stopped
     networks:
       - smarthome-network
-
-volumes:
-  postgres_data:
 
 networks:
   smarthome-network:
