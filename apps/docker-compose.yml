@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-smart-home:
     image: postgres:16-alpine
     container_name: smarthome-postgres
     environment:
@@ -18,9 +18,43 @@ services:
     networks:
       - smarthome-network
 
+  postgres-device-service:
+    image: postgres:16-alpine
+    container_name: device-service-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: devicedb
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - smarthome-network
+
+  postgres-telemetry-service:
+    image: timescale/timescaledb:latest-pg16
+    container_name: telemetry-service-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telemetrydb
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - smarthome-network
+
   temperature-api:
     build:
-      context: new_smart_home
+      context: heating-service
       dockerfile: Dockerfile
     container_name: temperature-api
     ports:
@@ -29,9 +63,41 @@ services:
     networks:
       - smarthome-network
 
+  telemetry-service:
+    build:
+      context: telemetry-service
+      dockerfile: Dockerfile
+    container_name: telemetry-service
+    depends_on:
+      postgres-device-service:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres-telemetry-service:5434/telemetrydb"
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  device-service:
+    build:
+      context: device-service
+      dockerfile: Dockerfile
+    container_name: device-service
+    depends_on:
+      postgres-device-service:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres-device-service:5433/devicedb"
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
   app:
     build:
-      context: smart_home
+      context: smart-home
       dockerfile: Dockerfile
     container_name: smarthome-app
     depends_on:

@@ -9,16 +9,21 @@ package "Auth Service (PostgreSQL)" as Auth {
     email: string
     password_hash: string
     created_at: datetime
+    updated_at: datetime
   }
   entity "Role" {
     *id: UUID
     name: string
     description: string
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Permission" {
     *id: UUID
     resource: string
     action: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "UserRole" {
     *user_id: UUID
@@ -40,6 +45,7 @@ package "Structure Service (PostgreSQL)" as Structure {
     level: int
     metadata: jsonb
     created_at: datetime
+    updated_at: datetime
     --
     * type: COUNTRY, CITY, DISTRICT
     * level: 0=country, 1=city, 2=district
@@ -50,17 +56,23 @@ package "Structure Service (PostgreSQL)" as Structure {
     user_id: UUID
     address: string
     coordinates: point
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Room" {
     *id: UUID
     home_id: UUID
     name: string
     floor: int
+    created_at: datetime
+    updated_at: datetime
   }
   entity "DeviceLocation" {
     *device_id: UUID
     *room_id: UUID
     position: string
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -69,17 +81,20 @@ package "Device Service (PostgreSQL)" as Device {
   entity "Device" {
     *id: UUID
     serial_number: string
-    model: string
     type: enum
     status: enum
     owner_id: UUID
+    device_model_id: UUID
     created_at: datetime
+    updated_at: datetime
   }
   entity "DeviceConfiguration" {
     *id: UUID
     device_id: UUID
     config_key: string
     config_value: json
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Firmware" {
     *id: UUID
@@ -87,6 +102,15 @@ package "Device Service (PostgreSQL)" as Device {
     version: string
     release_date: datetime
     download_url: string
+    created_at: datetime
+    updated_at: datetime
+  }
+  entity DeviceModel {
+    *id: UUID
+    name: string
+    parent_id: UUID
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -99,6 +123,7 @@ package "Heating Service (PostgreSQL)" as Heating {
     current_temperature: float
     status: enum
     created_at: datetime
+    updated_at: datetime
   }
   entity "Sensor" {
     *id: UUID
@@ -107,6 +132,8 @@ package "Heating Service (PostgreSQL)" as Heating {
     type: enum
     last_reading: float
     last_update: datetime
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Relay" {
     *id: UUID
@@ -114,6 +141,8 @@ package "Heating Service (PostgreSQL)" as Heating {
     device_id: UUID
     state: enum
     last_state_change: datetime
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -125,18 +154,24 @@ package "Light Service (PostgreSQL)" as Light {
     brightness: int
     color: string
     status: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "LightSensor" {
     *id: UUID
     light_system_id: UUID
     device_id: UUID
     type: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "LightRelay" {
     *id: UUID
     light_system_id: UUID
     device_id: UUID
     state: enum
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -148,18 +183,24 @@ package "Gates Service (PostgreSQL)" as Gates {
     position: enum
     speed: int
     status: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "GatesSensor" {
     *id: UUID
     gates_system_id: UUID
     device_id: UUID
     type: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "GatesRelay" {
     *id: UUID
     gates_system_id: UUID
     device_id: UUID
     state: enum
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -172,6 +213,8 @@ package "Camera Service (PostgreSQL)" as Camera {
     resolution: string
     angle: int
     status: enum
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Recording" {
     *id: UUID
@@ -180,6 +223,8 @@ package "Camera Service (PostgreSQL)" as Camera {
     end_time: datetime
     s3_url: string
     duration: int
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -191,12 +236,15 @@ package "Automation Service (PostgreSQL)" as Automation {
     user_id: UUID
     is_active: bool
     created_at: datetime
+    updated_at: datetime
   }
   entity "Trigger" {
     *id: UUID
     scenario_id: UUID
     event_type: enum
     device_id: UUID
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Condition" {
     *id: UUID
@@ -204,6 +252,8 @@ package "Automation Service (PostgreSQL)" as Automation {
     condition_type: enum
     operator: enum
     value: json
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Action" {
     *id: UUID
@@ -212,6 +262,8 @@ package "Automation Service (PostgreSQL)" as Automation {
     command_type: enum
     parameters: json
     order: int
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -224,6 +276,7 @@ package "Notification Service (PostgreSQL)" as Notification {
     type: enum
     priority: enum
     created_at: datetime
+    updated_at: datetime
     read_at: datetime
   }
   entity "Subscription" {
@@ -232,12 +285,16 @@ package "Notification Service (PostgreSQL)" as Notification {
     channel: enum
     event_type: enum
     is_active: bool
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Template" {
     *id: UUID
     name: string
     template_text: string
     channel: enum
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -250,6 +307,8 @@ package "Telemetry Service (TimescaleDB)" as Telemetry {
     metric_name: string
     value: float
     unit: string
+    created_at: datetime
+    updated_at: datetime
   }
   entity "AggregatedData" {
     *id: UUID
@@ -260,6 +319,8 @@ package "Telemetry Service (TimescaleDB)" as Telemetry {
     min_value: float
     max_value: float
     timestamp: datetime
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -271,6 +332,8 @@ package "Monitoring Service (PostgreSQL)" as Monitoring {
     last_status: string
     last_update: datetime
     is_online: bool
+    created_at: datetime
+    updated_at: datetime
   }
   entity "Alert" {
     *id: UUID
@@ -280,6 +343,8 @@ package "Monitoring Service (PostgreSQL)" as Monitoring {
     message: string
     created_at: datetime
     resolved_at: datetime
+    created_at: datetime
+    updated_at: datetime
   }
 }
 
@@ -301,6 +366,7 @@ Device ||--o{ DeviceConfiguration
 Device }o--|| Firmware: "uses"
 Device ||--|| DeviceLocation
 User ||--o{ Device: "владеет"
+DeviceModel ||--o{ Device: "модель"
 
 ' Связи Heating Service
 HeatingSystem ||--o{ Sensor

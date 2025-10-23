@@ -84,6 +84,7 @@ Rel(AutomationService, MessageBroker, "Триггеры/команды", "AMQP")
 Rel(MessageBroker, TelemetryService, "Сохранение событий", "AMQP")
 Rel(MessageBroker, MonitoringService, "Обновление состояний", "AMQP")
 Rel(MessageBroker, NotificationService, "Отправка уведомлений", "AMQP")
+Rel(MessageBroker, DeviceService, "Отправка уведомлений", "AMQP")
 
 ' Взаимодействие между доменами
 Rel(AutomationService, HeatingService, "Выполнение сценария", "REST")
