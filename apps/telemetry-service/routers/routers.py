@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from core.database import get_db
+from core import get_db
 from schemas import TelemetryEvent, TelemetryResponse
-from services.services import TelemetryService
+from services import TelemetryService
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 

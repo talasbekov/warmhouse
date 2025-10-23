@@ -7,7 +7,7 @@ Base = declarative_base()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@postgres-device-service:5432/telemetrydb"
+    "postgresql://postgres:postgres@postgres-telemetry-service:5432/telemetrydb"
 )
 
 engine = create_engine(DATABASE_URL)

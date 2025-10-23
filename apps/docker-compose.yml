@@ -69,10 +69,10 @@ services:
       dockerfile: Dockerfile
     container_name: telemetry-service
     depends_on:
-      postgres-device-service:
+      postgres-telemetry-service:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@postgres-telemetry-service:5434/telemetrydb"
+      DATABASE_URL: "postgresql://postgres:postgres@postgres-telemetry-service:5432/telemetrydb"
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -88,9 +88,9 @@ services:
       postgres-device-service:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@postgres-device-service:5433/devicedb"
+      DATABASE_URL: "postgresql://postgres:postgres@postgres-device-service:5432/devicedb"
     ports:
-      - "8082:8082"
+      - "8083:8083"
     restart: unless-stopped
     networks:
       - smarthome-network
