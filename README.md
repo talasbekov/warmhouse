@@ -356,13 +356,14 @@
 
 # Логи Telemetry Service (должен слушать очередь)
 - docker-compose logs telemetry-service | grep -E "RabbitMQ|Waiting"
+- 
 ```
-
 **Ожидаемый результат:**
-```
+
 app              | Connected to RabbitMQ successfully
 telemetry-service| ✅ Connected to RabbitMQ, queue: telemetry_events
 telemetry-service| 🎧 Waiting for messages...
+```
 
 - curl -X POST http://localhost:8080/api/v1/sensors \
   -H "Content-Type: application/json" \
@@ -380,14 +381,15 @@ telemetry-service| 🎧 Waiting for messages...
 
 # Telemetry должен получить и обработать
 - docker-compose logs telemetry-service | grep -E "Received|saved"
+- 
 ```
-
 **Ожидаемый результат:**
-```
+
 app              | 📤 Published telemetry: sensor-1 - temperature = 22.5 °C
 telemetry-service| 📨 Received message: {'device_id': 'sensor-1', ...}
 telemetry-service| 💾 Telemetry saved: sensor-1 - temperature
 telemetry-service| ✅ Message processed successfully
+```
 
 # Получить историю телеметрии для устройства sensor-1
 - curl http://localhost:8082/api/telemetry/history/sensor-1
