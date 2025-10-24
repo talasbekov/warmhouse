@@ -354,7 +354,7 @@
 
 # Логи Telemetry Service (должен слушать очередь)
 - docker-compose logs telemetry-service | grep -E "RabbitMQ|Waiting"
-- 
+
 ```
 **Ожидаемый результат:**
 
@@ -379,7 +379,7 @@ telemetry-service| 🎧 Waiting for messages...
 
 # Telemetry должен получить и обработать
 - docker-compose logs telemetry-service | grep -E "Received|saved"
-- 
+
 ```
 **Ожидаемый результат:**
 
