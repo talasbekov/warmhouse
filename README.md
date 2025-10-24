@@ -391,15 +391,17 @@ telemetry-service| ✅ Message processed successfully
 
 # Получить историю телеметрии для устройства sensor-1
 - curl http://localhost:8082/api/telemetry/history/sensor-1
+- 
+```
+Проверьте RabbitMQ UI
+Откройте в браузере: http://localhost:15672
 
-  - Проверьте RabbitMQ UI
-    Откройте в браузере: http://localhost:15672
-    
-    Логин: admin
-    Пароль: admin
-    
-    Перейдите в Queues → telemetry_events
-    Вы должны увидеть статистику:
-    
-    Ready: 0 (все сообщения обработаны)
-    Total: количество отправленных сообщений
+Логин: admin
+Пароль: admin
+
+Перейдите в Queues → telemetry_events
+Вы должны увидеть статистику:
+
+Ready: 0 (все сообщения обработаны)
+Total: количество отправленных сообщений
+```
