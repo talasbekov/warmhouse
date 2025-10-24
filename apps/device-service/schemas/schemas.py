@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-from models import DeviceType, DeviceStatus
+from models.models import DeviceType, DeviceStatus
 
 
 class DeviceCreate(BaseModel):

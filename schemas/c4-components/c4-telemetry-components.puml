@@ -37,18 +37,17 @@ ContainerDb(cacheStore, "Cache Store", "Redis", "Кэш агрегированн
 Container(messageBroker, "Message Broker", "RabbitMQ", "Очередь событий телеметрии")
 System_Ext(objectStorage, "Object Storage", "S3", "Архив старых данных")
 
-System_Ext(apiGateway, "API Gateway", "Точка входа")
 System_Ext(iotGateway, "IoT Gateway", "Источник телеметрии")
 System_Ext(monitoringService, "Monitoring Service", "Потребитель данных")
 System_Ext(functionalServices, "Functional Services", "Heating, Light и др.")
 
 ' === Связи API Layer ===
-Rel(apiGateway, telemetryAPI, "HTTP/REST")
-Rel(apiGateway, analyticsAPI, "HTTP/REST")
 Rel(telemetryAPI, writeHandler, "Запись телеметрии")
 Rel(telemetryAPI, queryHandler, "Получение истории")
 Rel(analyticsAPI, aggregationService, "Получение агрегаций")
 Rel(analyticsAPI, analyticsService, "Расчет статистики")
+Rel(eventSubscriber, telemetryAPI, "Получение событий", "AMQP")
+Rel(eventSubscriber, analyticsAPI, "Получение событий", "AMQP")
 
 ' === Application Layer связи ===
 Rel(writeHandler, telemetryDomainService, "Сохранение данных")

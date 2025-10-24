@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from models import Device, DeviceStatus
-from schemas import DeviceCreate, DeviceUpdate
-from typing import List, Optional
+from models.models import Device, DeviceStatus
+from schemas.schemas import DeviceCreate, DeviceUpdate
+from typing import List, Optional, Any
 import uuid
 
 
@@ -27,11 +27,11 @@ class DeviceService:
         return db.query(Device).filter(Device.id == device_id).first()
 
     @staticmethod
-    def get_devices(db: Session, skip: int = 0, limit: int = 100) -> List[Device]:
+    def get_devices(db: Session, skip: int = 0, limit: int = 100) -> list[type[Device]]:
         return db.query(Device).offset(skip).limit(limit).all()
 
     @staticmethod
-    def update_device(db: Session, device_id: str, device_data: DeviceUpdate) -> Optional[Device]:
+    def update_device(db: Session, device_id: str, device_data: DeviceUpdate) -> type[Device] | None:
         db_device = db.query(Device).filter(Device.id == device_id).first()
         if not db_device:
             return None

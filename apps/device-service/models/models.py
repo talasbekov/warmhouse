@@ -1,9 +1,8 @@
 import uuid
 from enum import Enum
 from sqlalchemy import Column, String, DateTime, Enum as SQLEnum
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-from core import Base
+from core.database import Base
 
 
 class DeviceType(str, Enum):

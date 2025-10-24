@@ -10,6 +10,7 @@ import (
 	"smarthome/db"
 	"smarthome/models"
 	"smarthome/services"
+	"smarthome/rabbitmq"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,13 +19,15 @@ import (
 type SensorHandler struct {
 	DB                 *db.DB
 	TemperatureService *services.TemperatureService
+	RabbitMQProducer   *rabbitmq.Producer  // ✅ Добавьте это поле
 }
 
 // NewSensorHandler creates a new SensorHandler
-func NewSensorHandler(db *db.DB, temperatureService *services.TemperatureService) *SensorHandler {
+func NewSensorHandler(db *db.DB, temperatureService *services.TemperatureService, producer *rabbitmq.Producer) *SensorHandler {
 	return &SensorHandler{
 		DB:                 db,
 		TemperatureService: temperatureService,
+		RabbitMQProducer:   producer,  // ✅ Добавьте это
 	}
 }
 
@@ -60,6 +63,20 @@ func (h *SensorHandler) GetSensors(c *gin.Context) {
 				sensors[i].Status = tempData.Status
 				sensors[i].LastUpdated = tempData.Timestamp
 				log.Printf("Updated temperature data for sensor %d from external API", sensor.ID)
+
+				// ✅ Отправляем событие в RabbitMQ
+				event := rabbitmq.TelemetryEvent{
+					DeviceID:   fmt.Sprintf("sensor-%d", sensor.ID),
+					MetricName: "temperature",
+					Value:      tempData.Value,
+					Unit:       tempData.Unit,
+					Timestamp:  tempData.Timestamp,
+				}
+
+				if err := h.RabbitMQProducer.PublishTelemetry(event); err != nil {
+					log.Printf("⚠️ Failed to publish telemetry to RabbitMQ: %v", err)
+				}
+
 			} else {
 				log.Printf("Failed to fetch temperature data for sensor %d: %v", sensor.ID, err)
 			}

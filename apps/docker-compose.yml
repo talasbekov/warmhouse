@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: smarthome
     volumes:
-      - ./smart_home/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./smart-home/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -71,8 +71,11 @@ services:
     depends_on:
       postgres-telemetry-service:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       DATABASE_URL: "postgresql://postgres:postgres@postgres-telemetry-service:5432/telemetrydb"
+      RABBITMQ_URL: "amqp://admin:admin@smarthome-rabbitmq:5672/"
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -105,12 +108,32 @@ services:
         condition: service_healthy
       temperature-api:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       DATABASE_URL: "postgres://postgres:postgres@postgres-smart-home:5432/smarthome?sslmode=disable"
       TEMPERATURE_API_URL: "http://temperature-api:8081"
+      RABBITMQ_URL: "amqp://admin:admin@smarthome-rabbitmq:5672/"
     ports:
       - "8080:8080"
     restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: smarthome-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - smarthome-network
 

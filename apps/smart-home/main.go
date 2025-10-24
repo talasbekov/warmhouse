@@ -11,6 +11,7 @@ import (
 
 	"smarthome/db"
 	"smarthome/handlers"
+	"smarthome/rabbitmq"
 	"smarthome/services"
 
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,15 @@ func main() {
 	temperatureService := services.NewTemperatureService(temperatureAPIURL)
 	log.Printf("Temperature service initialized with API URL: %s\n", temperatureAPIURL)
 
+	// ✅ Initialize RabbitMQ producer
+	rabbitmqURL := getEnv("RABBITMQ_URL", "amqp://admin:admin@smarthome-rabbitmq:5672/")
+	producer, err := rabbitmq.NewProducer(rabbitmqURL, "telemetry_events")
+	if err != nil {
+		log.Fatalf("Unable to connect to RabbitMQ: %v\n", err)
+	}
+	defer producer.Close()
+	log.Println("Connected to RabbitMQ successfully")
+
 	// Initialize router
 	router := gin.Default()
 
@@ -45,8 +55,8 @@ func main() {
 	// API routes
 	apiRoutes := router.Group("/api/v1")
 
-	// Register sensor routes
-	sensorHandler := handlers.NewSensorHandler(database, temperatureService)
+	// Register sensor routes with RabbitMQ producer
+	sensorHandler := handlers.NewSensorHandler(database, temperatureService, producer)
 	sensorHandler.RegisterRoutes(apiRoutes)
 
 	// Start server

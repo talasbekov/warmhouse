@@ -1,6 +1,5 @@
 from fastapi import FastAPI
-from core.database import engine
-from core import Base
+from core.database import engine, Base
 from routers.routers import router as device_router
 
 Base.metadata.create_all(bind=engine)

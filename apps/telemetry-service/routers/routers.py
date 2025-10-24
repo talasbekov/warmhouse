@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from core import get_db
+from core.database import get_db
 from schemas.schemas import TelemetryEvent, TelemetryResponse
 from services.services import TelemetryService
 
