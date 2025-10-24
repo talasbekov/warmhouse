@@ -339,13 +339,13 @@
 
 ### 2. Документация API
 
-![API_docs](./schemas/api-docs/auth-api.yaml)
-![API_docs](./schemas/api-docs/device-management-api.yaml)
-![API_docs](./schemas/api-docs/heating-management-api.yaml)
+- [API docs - Auth](./schemas/api-docs/auth-api.yaml)
+- [API docs - Device Management](./schemas/api-docs/device-management-api.yaml)
+- [API docs - Heating Management](./schemas/api-docs/heating-management-api.yaml)
 
 # Задание 5. Работа с docker и docker-compose
 
-![Docker](./apps/docker-compose.yml)
+- [Docker Compose Configuration](./apps/docker-compose.yml)
 
 # **Задание 6. Разработка MVP**
 
