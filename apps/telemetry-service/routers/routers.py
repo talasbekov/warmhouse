@@ -4,8 +4,8 @@ from typing import List, Optional
 from datetime import datetime
 
 from core import get_db
-from schemas import TelemetryEvent, TelemetryResponse
-from services import TelemetryService
+from schemas.schemas import TelemetryEvent, TelemetryResponse
+from services.services import TelemetryService
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 

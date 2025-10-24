@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from models import TelemetryHistory
-from schemas import TelemetryEvent
+from models.models import TelemetryHistory
+from schemas.schemas import TelemetryEvent
 from typing import List, Optional
 from datetime import datetime
 import uuid
