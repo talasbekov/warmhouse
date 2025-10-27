@@ -1,0 +1,68 @@
+@startuml C4_Code_HeatingService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' ============================================================
+' C4 Level 4 — Code Diagram
+' Context: Heating Service (internal implementation details)
+' ============================================================
+
+LAYOUT_WITH_LEGEND()
+
+System_Boundary(heating_service, "Heating Service") {
+
+    ' ------------------ API Layer ------------------
+    Boundary(api_layer, "API Layer") {
+        Component(controller, "HeatingController", "Маршрутизатор FastAPI", "Маршруты REST API для включения, выключения, установки температуры")
+        Component(dto, "HeatingDTO", "Схема данных", "Pydantic-модели запросов и ответов")
+    }
+
+    ' ------------------ APPLICATION LAYER ------------------
+    Boundary(app_layer, "Application Layer") {
+        Component(cmd_handler, "HeatingCommandHandler", "Обработчик команд", "Обрабатывает команды: включить, выключить, установить температуру")
+        Component(query_handler, "HeatingQueryHandler", "Обработчик запросов", "Обрабатывает запросы состояния и истории")
+        Component(scheduler, "HeatingScheduler", "Сервис планировщика", "Планирует выполнение команд по расписанию")
+    }
+
+    ' ------------------ DOMAIN LAYER ------------------
+    Boundary(domain_layer, "Domain Layer") {
+        Component(domain_service, "HeatingDomainService", "Доменный сервис", "Бизнес-правила управления отоплением")
+        Component(aggregate, "HeatingAggregate", "Корневой агрегат", "Отражает систему отопления: состояние, температура, режим")
+        Component(value_objects, "TemperatureValue / CommandType", "Объекты-значения", "Температура, тип команды, статус отопления")
+        Component(events, "HeatingEvents", "Доменные события", "События: HeatingTurnedOn, HeatingTurnedOff, TemperatureChanged")
+    }
+
+    ' ------------------ INFRASTRUCTURE LAYER ------------------
+    Boundary(infra_layer, "Infrastructure Layer") {
+        Component(repo_iface, "HeatingRepository", "Интерфейс репозитория", "Интерфейс доступа к данным")
+        Component(repo_impl, "HeatingRepositoryPostgres", "Реализация репозитория", "Реализация через PostgreSQL")
+        Component(device_repo, "DeviceRepository", "Репозиторий устройств", "Доступ к устройствам и реле")
+        Component(adapter, "DeviceAdapter", "Аппаратный адаптер", "Отправляет команды через MQTT к IoT-устройствам")
+        Component(state_manager, "StateManager", "Адаптер кэша", "Кэширует текущее состояние (Redis)")
+        Component(event_publisher, "EventPublisher", "Публикатор брокера", "Публикует события в RabbitMQ")
+        Component(event_handler, "EventHandler", "Обработчик брокера", "Обрабатывает входящие IoT-события")
+    }
+}
+
+' ------------------ RELATIONSHIPS ------------------
+Rel(controller, cmd_handler, "вызывает → executeCommand()")
+Rel(controller, query_handler, "вызывает → handleQuery()")
+
+Rel(cmd_handler, domain_service, "делегирует бизнес-логику")
+Rel(query_handler, repo_iface, "извлекает данные")
+Rel(scheduler, cmd_handler, "запускает команды по расписанию")
+
+Rel(domain_service, aggregate, "работает с агрегатом")
+Rel(aggregate, value_objects, "использует объекты-значения")
+Rel(domain_service, event_publisher, "публикует доменные события")
+
+Rel(repo_iface, repo_impl, "реализуется через")
+Rel(domain_service, repo_iface, "сохраняет / загружает агрегаты")
+Rel(domain_service, device_repo, "управляет устройствами")
+
+Rel(event_publisher, event_handler, "асинхронные события через брокер")
+Rel(event_handler, state_manager, "обновляет кэшированное состояние")
+Rel(state_manager, repo_impl, "записывает изменения в базу данных")
+
+Rel(adapter, device_repo, "взаимодействует через MQTT")
+
+@enduml

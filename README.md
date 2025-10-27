@@ -219,9 +219,7 @@
 
 **Диаграмма кода (Code)**
 
-![C4 Diagram](./schemas/c4-code/Automation_Scenario_Execution_Sequence.png)
-![C4 Diagram](./schemas/c4-code/Heating_Command_Processing_Sequence.png)
-![C4 Diagram](./schemas/c4-code/Heating_Domain_Model_Class_Diagram.png)
+![C4 Diagram](schemas/c4-code/C4_Code_HeatingService_Diagram.png)
 
 # Задание 3. Разработка ER-диаграммы
 
